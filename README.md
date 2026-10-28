@@ -101,8 +101,8 @@ with `guardianctl`; the demo's kind-only steps (loading images into the cluster
 and forwarding ports) do not apply.
 
 The harness uses workspace pieces that are not published yet (`stratatools`
-partition templates, `demo-divisions`, and the Agent). The public repos below
-are the source of truth for the engines themselves.
+partition templates, `demo-divisions`, and the Agent). The public repositories in
+the map above are the source of truth for the engines themselves.
 
 ## Build from source
 
@@ -140,14 +140,25 @@ Then build the stack in dependency order:
 ```bash
 cd ../monofs
 make build
-make run-cluster        # router on localhost:9090, UI on localhost:8080
 
 cd ../guardian
-go build ./cmd/guardianctl ./cmd/guardiand
+mkdir -p bin
+go build -o bin/guardianctl ./cmd/guardianctl
+go build -o bin/guardiand ./cmd/guardiand
 
 cd ../doctor
 make build
 ```
+
+Start MonoFS in one terminal:
+
+```bash
+cd ../monofs
+make run-cluster        # router on localhost:9090, UI on localhost:8080
+```
+
+Then point Guardian and Doctor at the router (`localhost:9090`) and follow
+their READMEs for the first partition and telemetry query.
 
 Prerequisites are Go 1.26.4, Node 22, FUSE 3 for mounting, Docker for image
 builds, and `kubectl` plus `kind` for the demo.

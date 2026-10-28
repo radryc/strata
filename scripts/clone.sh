@@ -63,6 +63,7 @@ done < "$ROOT/repos.txt"
 
 printf '\nDone.\n\n'
 printf 'Next:\n'
-printf '  cd %s/monofs && make build && make run-cluster\n' "$TARGET"
-printf '  cd %s/guardian && go build ./cmd/guardianctl ./cmd/guardiand\n' "$TARGET"
+printf '  cd %s/monofs && make build\n' "$TARGET"
+printf '  cd %s/guardian && mkdir -p bin && go build -o bin/guardianctl ./cmd/guardianctl\n' "$TARGET"
 printf '  cd %s/doctor && make build\n' "$TARGET"
+printf '  cd %s/monofs && make run-cluster\n' "$TARGET"
