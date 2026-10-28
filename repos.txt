@@ -1,0 +1,16 @@
+# Public Strata repositories, one per line.
+#
+# scripts/clone.sh checks these out as siblings of this repository so the
+# Go replace directives in monofs, guardian, doctor, and cfg resolve.
+#
+# The order is the recommended build order.
+kvs
+cfg
+packager
+monofs
+guardian
+doctor
+lb
+k8s-top
+aws
+hub
