@@ -84,16 +84,18 @@ experiments, not part of Strata.
 
 ## Bootstrap
 
-The end-to-end harness is `demo-divisions/demo.sh` in the Strata workspace. It
-starts the control plane and runs the multi-account CDK observation demo:
+The end-to-end harness is `demo-divisions/demo.sh` in the Strata workspace.
+`scripts/bootstrap.sh` delegates to it:
 
 ```bash
-cd demo-divisions
-./demo.sh up                    # kind control plane + full demo
-./demo.sh start --k8s           # control plane only, on kind
-./demo.sh control-plane --k8s up
-./demo.sh control-plane --aws up
+./scripts/bootstrap.sh up                    # kind control plane + full demo
+./scripts/bootstrap.sh start --k8s           # control plane only, on kind
+./scripts/bootstrap.sh control-plane --k8s up
+./scripts/bootstrap.sh control-plane --aws up
 ```
+
+Set `STRATA_DEMO_DIR` if the harness lives somewhere other than
+`../demo-divisions`.
 
 `--k8s` uses a local [kind](https://kind.sigs.k8s.io/) cluster. To use a real
 Kubernetes cluster, point `KUBECONFIG` at it and deploy the Guardian partitions
