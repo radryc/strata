@@ -11,7 +11,7 @@ in the open by [@radryc](https://github.com/radryc). It connects five planes:
 | Deployment | [Guardian](https://github.com/radryc/guardian) | Compiles desired state into typed assets and runs `DIFF → CHECK → APPLY` against Kubernetes, Docker, AWS, or local backends |
 | Observability | [Doctor](https://github.com/radryc/doctor) | Receives OTLP, tokenizes sensitive fields before persistence, and serves traces, logs, metrics, and Guardian health |
 | Traffic | [lb](https://github.com/radryc/lb) | L4 registry and TCP proxy for routing external ports to live backends (LB-Edge) |
-| Assistance | Agent | Answers platform questions and proposes changes behind approval gates (in development) |
+| Assistance | Agent | Answers platform questions and proposes changes behind approval gates (private repo) |
 
 MonoFS is the substrate. Guardian and Doctor keep their state in it. LB-Edge
 routes traffic to what Guardian deployed. Agent reads all four.
