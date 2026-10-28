@@ -10,6 +10,7 @@ packager
 monofs
 guardian
 doctor
+agent
 lb
 k8s-top
 aws

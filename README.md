@@ -11,7 +11,7 @@ in the open by [@radryc](https://github.com/radryc). It connects five planes:
 | Deployment | [Guardian](https://github.com/radryc/guardian) | Compiles desired state into typed assets and runs `DIFF → CHECK → APPLY` against Kubernetes, Docker, AWS, or local backends |
 | Observability | [Doctor](https://github.com/radryc/doctor) | Receives OTLP, tokenizes sensitive fields before persistence, and serves traces, logs, metrics, and Guardian health |
 | Traffic | [lb](https://github.com/radryc/lb) | L4 registry and TCP proxy for routing external ports to live backends (LB-Edge) |
-| Assistance | Agent | Answers platform questions and proposes changes behind approval gates (private repo) |
+| Assistance | [Agent](https://github.com/radryc/agent) | Answers platform questions and proposes changes behind approval gates |
 
 MonoFS is the substrate. Guardian and Doctor keep their state in it. LB-Edge
 routes traffic to what Guardian deployed. Agent reads all four.
@@ -66,6 +66,7 @@ flowchart TB
 | [monofs](https://github.com/radryc/monofs) | Go | Distributed filesystem and source plane: virtual monorepo, session VCS, search, OCI registry, Bazel cache, logengine |
 | [guardian](https://github.com/radryc/guardian) | Go | Declarative deployment control plane: partitions, intents, typed assets, drift, push/apply, rollback |
 | [doctor](https://github.com/radryc/doctor) | Go | Privacy-first telemetry backend: OTLP ingest, HMAC tokenization, trace/log/metric query, Grafana-compatible APIs |
+| [agent](https://github.com/radryc/agent) | Python | Assistance plane: Otto/Steve personas, a tool loop over Guardian, Doctor, and MonoFS, approval-gated mutations, writable workspace |
 | [lb](https://github.com/radryc/lb) | Go | L4 load balancer: registry control plane, TCP proxy, Kubernetes endpoints agent |
 | [kvs](https://github.com/radryc/kvs) | Go | Embedded key-value store backing Guardian and MonoFS state |
 | [cfg](https://github.com/radryc/cfg) | Go | Versioned config store with a KVS hot tier and encrypted packager archives |
@@ -74,9 +75,8 @@ flowchart TB
 | [k8s-top](https://github.com/radryc/k8s-top) | Go | Kubernetes metrics exporter for pods and containers, annotated with Guardian partition/intent/asset labels |
 | [hub](https://github.com/radryc/hub) | HTML/CSS | Static landing page for stratasre.com |
 
-`agent` and `stratatools` are currently private. They add the assistant and the
-packaged partition templates, but the public repositories above are enough to
-build and run the core engines.
+`stratatools` is currently private. It adds the packaged partition templates,
+but the public repositories above are enough to build and run the core engines.
 
 Other repositories on [@radryc](https://github.com/radryc?tab=repositories) —
 `memegen`, `devdns`, `awsasset`, `promtest`, and friends — are separate
@@ -103,8 +103,8 @@ with `guardianctl`; the demo's kind-only steps (loading images into the cluster
 and forwarding ports) do not apply.
 
 The harness uses workspace pieces that are not published yet (`stratatools`
-partition templates, `demo-divisions`, and the Agent). The public repositories in
-the map above are the source of truth for the engines themselves.
+partition templates and `demo-divisions`). The public repositories in the map
+above are the source of truth for the engines themselves.
 
 ## Build from source
 
@@ -124,6 +124,7 @@ strata/          # this repo — the front door
 monofs/          # sibling checkouts
 guardian/
 doctor/
+agent/
 lb/
 kvs/
 cfg/
@@ -151,6 +152,9 @@ go build -o bin/guardiand ./cmd/guardiand
 cd ../doctor
 make build
 ```
+
+Agent is a separate Docker Compose stack (`../agent/docker-compose.yml`) with
+its own UI and API; configure it from `../agent/.env.example`.
 
 Start MonoFS in one terminal:
 
