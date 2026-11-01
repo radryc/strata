@@ -52,6 +52,12 @@ aws secretsmanager put-secret-value \
 The CDK output includes the Guardian and MonoFS URLs, the MonoFS token secret,
 and (when enabled) the Doctor URL and OTLP endpoint.
 
+Cognito SSO is enabled by default in `cdk.json`. `./deploy.sh` uses
+`STRATA_ADMIN_PASSWORD` when set; otherwise it generates a one-time password.
+The demo users are `akadmin` (`admin@example.com`), `usera`, and `userb`.
+See [access-and-login.md](access-and-login.md) for creating users, resetting
+passwords, and Cognito CLI commands.
+
 ## 3. Deploy with the AWS pusher
 
 ```bash

@@ -50,6 +50,17 @@ fi
 [[ -n "$NAME" ]] || die "--name is required when .guardian/config.yaml is absent"
 [[ -n "$PARTITION" ]] || die "--partition is required when .guardian/config.yaml is absent"
 
+load_env
+# Prefer the MonoFS token path for local pushes: it works even when Guardian's
+# UI/API requires an OIDC session. Only do this for the local kind endpoint so
+# an explicit remote --guardian-url is never redirected to localhost.
+if [[ -n "${MONOFS_TOKEN:-}" && "$GUARDIAN_URL" == "http://127.0.0.1:18090" ]]; then
+  if (exec 3<>"/dev/tcp/127.0.0.1/19090") 2>/dev/null; then
+    exec 3>&- 3<&-
+    export STRATA_MONOFS_DIRECT=true
+    export MONOFS_DIRECT_ROUTER="${MONOFS_DIRECT_ROUTER:-127.0.0.1:19090}"
+  fi
+fi
 GUARDIANCTL="$(build_guardianctl)"
 if $REGISTER; then
   log "registering $NAME -> $PARTITION via pusher $PUSHER"
@@ -58,8 +69,7 @@ if $REGISTER; then
   "$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" repo import --name "$NAME" --source "$REPO"
 else
   log "pushing partition $PARTITION from $REPO"
-  "$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" partition push \
-    --dir "$REPO/guardian/partitions/$PARTITION"
+  push_partition "$GUARDIANCTL" "$REPO/guardian/partitions/$PARTITION"
 fi
 
 log "partition imported; watch it with:"

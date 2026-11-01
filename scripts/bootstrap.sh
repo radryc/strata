@@ -7,6 +7,7 @@
 #   ./scripts/bootstrap.sh k8s-down           # remove from current cluster
 #   ./scripts/bootstrap.sh aws [flags]        # deploy the AWS CDK stack
 #   ./scripts/bootstrap.sh onboard --repo DIR # register an app repository
+#   ./scripts/bootstrap.sh authentik           # re-apply local Authentik SSO
 #
 # The older demo-divisions harness can still be reached explicitly:
 #   STRATA_DEMO_DIR=../demo-divisions ./scripts/bootstrap.sh demo up
@@ -23,6 +24,7 @@ case "$CMD" in
   k8s-down)    exec "$ROOT/scripts/k8s-down.sh" "$@" ;;
   aws)         exec "$ROOT/scripts/aws-up.sh" "$@" ;;
   onboard)     exec "$ROOT/scripts/onboard-app.sh" "$@" ;;
+  authentik)   exec "$ROOT/scripts/dev-kind-authentik.sh" "$@" ;;
   demo)
     DEMO_DIR="${STRATA_DEMO_DIR:-$ROOT/../demo-divisions}"
     DEMO="$DEMO_DIR/demo.sh"

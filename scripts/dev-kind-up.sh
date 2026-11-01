@@ -128,12 +128,25 @@ if ! $NO_PORT_FORWARD; then
   log "starting local port-forwards"
   start_port_forward monofs-grpc "svc/monofs-router" 19090 9090 || true
   start_port_forward monofs-node "svc/monofs-server" 9000 9000 || true
-  start_port_forward monofs-http "svc/monofs-router" 18081 8080 || true
   start_port_forward guardian "svc/guardiand" 18090 8090 || true
-  start_port_forward doctor "svc/doctor-query" 18080 18080 || true
+  start_port_forward ui-guardian "svc/guardiand" 28090 8090 || true
+  start_port_forward ui-doctor "svc/doctor-query" 28080 18080 || true
+  start_port_forward ui-monofs "svc/monofs-router" 28081 8080 || true
 fi
 
+log "enabling Authentik SSO"
+if $NO_PORT_FORWARD; then
+  "$ROOT/scripts/dev-kind-authentik.sh" --no-port-forward
+else
+  "$ROOT/scripts/dev-kind-authentik.sh"
+fi
+export STRATA_AUTH_MODE=authentik
+
 log "rendering and pushing the onboarding application partition"
+if ! $NO_PORT_FORWARD; then
+  export STRATA_MONOFS_DIRECT=true
+  export MONOFS_DIRECT_ROUTER=127.0.0.1:19090
+fi
 APP_PARTITION_DIR="$STRATA_STATE_DIR/partitions/$STRATA_APP_PARTITION"
 render_tree "$ROOT/bootstrap/partitions/$STRATA_APP_PARTITION" "$APP_PARTITION_DIR"
 if $NO_PORT_FORWARD && [[ -z "${GUARDIAN_URL:-}" ]]; then

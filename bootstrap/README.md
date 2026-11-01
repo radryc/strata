@@ -6,6 +6,7 @@ does not require the private `demo-divisions` or `stratatools` repositories.
 ```text
 bootstrap/
 ├── kind/cluster.yaml                  # kind cluster used by dev-kind-up.sh
+├── auth/authentik.yaml                # development Authentik SSO reference
 ├── k8s/                               # reference control-plane manifests
 │   ├── 00-namespace.yaml
 │   ├── 10-monofs-fetcher.yaml
@@ -25,6 +26,7 @@ account IDs, or registry credentials are stored here.
 See:
 
 - [../docs/local-kind.md](../docs/local-kind.md)
+- [../docs/access-and-login.md](../docs/access-and-login.md)
 - [../docs/kubernetes.md](../docs/kubernetes.md)
 - [../docs/aws.md](../docs/aws.md)
 - [../docs/onboarding-application.md](../docs/onboarding-application.md)
