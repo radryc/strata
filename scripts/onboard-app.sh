@@ -4,6 +4,7 @@
 #
 # Usage:
 #   ./scripts/onboard-app.sh --repo ../my-app [--name my-app] [--partition my-app]
+#   ./scripts/onboard-app.sh --repo ../my-app --register [--pusher k8s-main]
 #
 # The repository should contain:
 #   .guardian/config.yaml
@@ -21,6 +22,7 @@ REPO=""
 NAME=""
 PARTITION=""
 PUSHER="k8s-main"
+REGISTER=false
 GUARDIAN_URL="${GUARDIAN_URL:-http://127.0.0.1:18090}"
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +30,7 @@ while [[ $# -gt 0 ]]; do
     --name) NAME="${2:?--name requires a value}"; shift 2 ;;
     --partition) PARTITION="${2:?--partition requires a value}"; shift 2 ;;
     --pusher) PUSHER="${2:?--pusher requires a value}"; shift 2 ;;
+    --register) REGISTER=true; shift ;;
     --guardian-url) GUARDIAN_URL="${2:?--guardian-url requires a value}"; shift 2 ;;
     -h|--help) sed -n '2,18p' "$0"; exit 0 ;;
     *) die "unknown flag: $1" ;;
@@ -48,10 +51,16 @@ fi
 [[ -n "$PARTITION" ]] || die "--partition is required when .guardian/config.yaml is absent"
 
 GUARDIANCTL="$(build_guardianctl)"
-log "registering $NAME -> $PARTITION via pusher $PUSHER"
-"$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" repo add \
-  --name "$NAME" --pusher "$PUSHER" --partition "$PARTITION" --source "$REPO"
-"$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" repo import --name "$NAME" --source "$REPO"
+if $REGISTER; then
+  log "registering $NAME -> $PARTITION via pusher $PUSHER"
+  "$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" repo add \
+    --name "$NAME" --pusher "$PUSHER" --partition "$PARTITION" --source "$REPO"
+  "$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" repo import --name "$NAME" --source "$REPO"
+else
+  log "pushing partition $PARTITION from $REPO"
+  "$GUARDIANCTL" --guardian-url "$GUARDIAN_URL" partition push \
+    --dir "$REPO/guardian/partitions/$PARTITION"
+fi
 
 log "partition imported; watch it with:"
 printf '  %s --guardian-url %s partition status --partition %s\n' \

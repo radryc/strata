@@ -35,19 +35,12 @@ From a checked-out Strata workspace:
 docker build -t strata/onboarding-app:dev examples/onboarding-app/app
 kind load docker-image strata/onboarding-app:dev --name strata-dev
 
-# Register the repository and import its partition.
-guardianctl --guardian-url http://127.0.0.1:18090 repo add \
-  --name onboarding-app \
-  --pusher k8s-main \
-  --partition onboarding-app \
-  --source "$PWD/examples/onboarding-app"
-guardianctl --guardian-url http://127.0.0.1:18090 repo import \
-  --name onboarding-app \
-  --source "$PWD/examples/onboarding-app"
+# Push the dedicated partition.
+./scripts/onboard-app.sh --repo "$PWD/examples/onboarding-app"
 ```
 
-The `repo add` call only registers the source; `repo import` reads
-`guardian/partitions/**` and reconciles the partition.
+Pass `--register` to also record the repository in Guardian for repo-driven
+syncs (the pusher must already be registered).
 
 For the full step-by-step guide, see
 [`docs/onboarding-application.md`](../../docs/onboarding-application.md).

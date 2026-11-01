@@ -36,7 +36,8 @@ Then:
 2. set the image reference in `intents/app.yaml`;
 3. adjust the namespace and resources;
 4. add the matching `.guardian/config.yaml` (see the sample application);
-5. register the repository with `guardianctl repo apply`.
+5. push it with `./scripts/onboard-app.sh --repo ../my-app` (or register the
+   repository with `guardianctl repo add` + `repo import`).
 
 ## Secrets
 
