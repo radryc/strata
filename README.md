@@ -82,29 +82,62 @@ Other repositories on [@radryc](https://github.com/radryc?tab=repositories) —
 `memegen`, `devdns`, `awsasset`, `promtest`, and friends — are separate
 experiments, not part of Strata.
 
-## Bootstrap
+## Quickstart
 
-The end-to-end harness is `demo-divisions/demo.sh` in the Strata workspace.
-`scripts/bootstrap.sh` delegates to it:
+### Local kind cluster
 
 ```bash
-./scripts/bootstrap.sh up                    # kind control plane + full demo
-./scripts/bootstrap.sh start --k8s           # control plane only, on kind
-./scripts/bootstrap.sh control-plane --k8s up
-./scripts/bootstrap.sh control-plane --aws up
+git clone https://github.com/radryc/strata.git
+cd strata
+./scripts/clone.sh
+./scripts/dev-kind-up.sh
 ```
 
-Set `STRATA_DEMO_DIR` if the harness lives somewhere other than
-`../demo-divisions`.
+This builds MonoFS, Guardian, and Doctor from the public checkouts, starts them
+in a local kind cluster, and onboards the example application partition.
 
-`--k8s` uses a local [kind](https://kind.sigs.k8s.io/) cluster. To use a real
-Kubernetes cluster, point `KUBECONFIG` at it and deploy the Guardian partitions
-with `guardianctl`; the demo's kind-only steps (loading images into the cluster
-and forwarding ports) do not apply.
+| URL | What |
+|---|---|
+| <http://127.0.0.1:18090> | Guardian UI |
+| <http://127.0.0.1:18080> | Doctor UI |
+| <http://127.0.0.1:18081> | MonoFS UI |
+| <http://127.0.0.1:18088> | Example application |
 
-The harness uses workspace pieces that are not published yet (`stratatools`
-partition templates and `demo-divisions`). The public repositories in the map
-above are the source of truth for the engines themselves.
+See [docs/local-kind.md](docs/local-kind.md) for details and teardown.
+
+### Existing Kubernetes cluster
+
+```bash
+export STRATA_IMAGE_PREFIX=ghcr.io/your-org/strata
+./scripts/k8s-up.sh --build --push
+```
+
+See [docs/kubernetes.md](docs/kubernetes.md).
+
+### AWS
+
+```bash
+./scripts/aws-up.sh --with-pusher -y
+```
+
+The wrapper runs the public `aws` CDK project with your active AWS profile and
+region. See [docs/aws.md](docs/aws.md).
+
+### Onboard an application repository
+
+Each application owns a dedicated partition inside its own repository:
+
+```bash
+./scripts/onboard-app.sh --repo ../my-app
+```
+
+See [docs/onboarding-application.md](docs/onboarding-application.md) for the
+repository layout, CI example, and AWS/Kubernetes variants. The prepared
+partition template is documented in
+[docs/bootstrap-partition.md](docs/bootstrap-partition.md).
+
+The older `demo-divisions/demo.sh` harness remains available for the private
+multi-account demo; it is no longer required for the public quickstart.
 
 ## Build from source
 

@@ -1,0 +1,14 @@
+apiVersion: guardian/v1alpha1
+kind: RepoConfig
+pusher:
+  name: aws-123456789012
+  account: "123456789012"
+  region: eu-west-1
+  description: AWS pusher registered by the Strata control plane
+repo:
+  name: aws-app
+  partition: aws-app
+  source: .
+  account: "123456789012"
+  region: eu-west-1
+  description: Example CDK application managed by Guardian

@@ -1,0 +1,10 @@
+apiVersion: guardian/v1alpha1
+kind: RepoConfig
+pusher:
+  name: k8s-main
+  description: Local kind cluster used by the Strata quickstart
+repo:
+  name: onboarding-app
+  partition: onboarding-app
+  source: .
+  description: Example application managed by Guardian

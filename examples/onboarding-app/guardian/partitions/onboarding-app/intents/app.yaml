@@ -1,0 +1,44 @@
+apiVersion: guardian/v1alpha1
+kind: Intent
+metadata:
+  name: app
+spec:
+  intentType: standard
+  targetPusher: k8s-main
+  target:
+    cluster: k8s-main
+    namespace: onboarding-app
+  locked: false
+  assets:
+    - type: Compute
+      name: app
+      properties:
+        # Replace with the image your CI builds, for example
+        # ghcr.io/your-org/onboarding-app:sha-<commit>.
+        image: ghcr.io/your-org/onboarding-app:latest
+        imagePullPolicy: IfNotPresent
+        env:
+          PORT: "8080"
+        ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+            servicePort: 8080
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi
+    - type: Probe
+      name: app-health
+      dependsOn: [app]
+      properties:
+        target: app
+        type: http
+        path: /healthz
+        port: 8080
+        interval: 30s
+        timeout: 3s
+        retries: 2

@@ -1,0 +1,148 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monofs-data
+  namespace: __NAMESPACE__
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monofs-server
+  namespace: __NAMESPACE__
+  labels: { app: monofs-server }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: monofs-server }
+  template:
+    metadata:
+      labels: { app: monofs-server }
+    spec:
+      containers:
+        - name: server
+          image: __IMAGE_PREFIX__/monofs-server:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          args:
+            - --addr=:9000
+            - --node-id=node-a
+            - --db-path=/data/db
+            - --logengine-dir=/data/logengine
+            - --git-cache=/data/git
+            - --kvs-data-dir=/data/kvs
+            - --kvs-api-addr=127.0.0.1:9000
+            - --fetcher=monofs-fetcher:9200
+            - --enable-prediction
+            - --kvs-raft-addr=0.0.0.0:7000
+            - --kvs-raft-advertise-addr=127.0.0.1:7000
+            - --kvs-bootstrap
+            - --db-sync=true
+            - --debug
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: MONOFS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_ENCRYPTION_KEY }
+            - name: MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+          ports:
+            - { name: api, containerPort: 9000 }
+            - { name: raft, containerPort: 7000 }
+          readinessProbe:
+            tcpSocket: { port: api }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: api }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: "2", memory: 2Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: monofs-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monofs-server
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: monofs-server }
+  ports:
+    - { name: api, port: 9000, targetPort: api }
+    - { name: raft, port: 7000, targetPort: raft }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monofs-router
+  namespace: __NAMESPACE__
+  labels: { app: monofs-router }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: monofs-router }
+  template:
+    metadata:
+      labels: { app: monofs-router }
+    spec:
+      containers:
+        - name: router
+          image: __IMAGE_PREFIX__/monofs-router:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=9090
+            - --http-port=8080
+            - --router-name=router-a
+            - --cluster-id=strata-dev
+            - --nodes=node-a=monofs-server:9000
+            - --weights=node-a=100
+            - --external-addrs=node-a=monofs-server:9000
+            - --fetcher-addrs=monofs-fetcher:9200
+            - --debug
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: MONOFS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_ENCRYPTION_KEY }
+            - name: MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+          ports:
+            - { name: grpc, containerPort: 9090 }
+            - { name: http, containerPort: 8080 }
+          readinessProbe:
+            tcpSocket: { port: grpc }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: grpc }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monofs-router
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: monofs-router }
+  ports:
+    - { name: grpc, port: 9090, targetPort: grpc }
+    - { name: http, port: 8080, targetPort: http }

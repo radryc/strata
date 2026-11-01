@@ -1,0 +1,16 @@
+apiVersion: guardian/v1alpha1
+kind: Partition
+metadata:
+  name: aws-app
+  labels:
+    role: application
+spec:
+  deletionPolicy: destroy
+  reconciliation:
+    mode: auto
+    interval: 1m
+  labels:
+    stack: aws
+    component: aws-app
+    topology: cdk
+    managedBy: guardian

@@ -1,27 +1,44 @@
 #!/usr/bin/env bash
-# Delegate to the Strata workspace bootstrap harness.
+# Public Strata bootstrap dispatcher.
 #
-# The harness lives in demo-divisions/demo.sh next to the source checkouts.
-# This wrapper keeps a single entrypoint in the umbrella repo:
+#   ./scripts/bootstrap.sh up                 # local kind developer stack
+#   ./scripts/bootstrap.sh down               # tear down kind
+#   ./scripts/bootstrap.sh k8s [flags]        # deploy to current kubeconfig
+#   ./scripts/bootstrap.sh k8s-down           # remove from current cluster
+#   ./scripts/bootstrap.sh aws [flags]        # deploy the AWS CDK stack
+#   ./scripts/bootstrap.sh onboard --repo DIR # register an app repository
 #
-#   ./scripts/bootstrap.sh up
-#   ./scripts/bootstrap.sh start --k8s
-#   ./scripts/bootstrap.sh control-plane --aws up
-#
-# Environment:
-#   STRATA_DEMO_DIR=../demo-divisions   directory containing demo.sh
-#
+# The older demo-divisions harness can still be reached explicitly:
+#   STRATA_DEMO_DIR=../demo-divisions ./scripts/bootstrap.sh demo up
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEMO_DIR="${STRATA_DEMO_DIR:-$ROOT/../demo-divisions}"
-DEMO="$DEMO_DIR/demo.sh"
+CMD="${1:-help}"
+shift || true
 
-if [[ ! -x "$DEMO" ]]; then
-  printf 'Strata demo harness not found at %s\n\n' "$DEMO" >&2
-  printf 'The full bootstrap lives in demo-divisions/demo.sh. Set\n' >&2
-  printf 'STRATA_DEMO_DIR to that directory, or run the script directly.\n' >&2
-  exit 1
-fi
-
-exec "$DEMO" "$@"
+case "$CMD" in
+  up)          exec "$ROOT/scripts/dev-kind-up.sh" "$@" ;;
+  down)        exec "$ROOT/scripts/dev-kind-down.sh" "$@" ;;
+  k8s)         exec "$ROOT/scripts/k8s-up.sh" "$@" ;;
+  k8s-down)    exec "$ROOT/scripts/k8s-down.sh" "$@" ;;
+  aws)         exec "$ROOT/scripts/aws-up.sh" "$@" ;;
+  onboard)     exec "$ROOT/scripts/onboard-app.sh" "$@" ;;
+  demo)
+    DEMO_DIR="${STRATA_DEMO_DIR:-$ROOT/../demo-divisions}"
+    DEMO="$DEMO_DIR/demo.sh"
+    [[ -x "$DEMO" ]] || {
+      printf 'error: demo harness not found at %s\n' "$DEMO" >&2
+      printf 'Set STRATA_DEMO_DIR or use the public commands: up, k8s, aws.\n' >&2
+      exit 1
+    }
+    exec "$DEMO" "$@"
+    ;;
+  help|-h|--help)
+    awk 'NR>1 && /^#/ { print; next } NR>1 && /^$/ { if (seen) exit; next } NR>1 { exit } { seen=1 }' "$0"
+    ;;
+  *)
+    printf 'unknown command: %s\n\n' "$CMD" >&2
+    sed -n '2,18p' "$0" >&2
+    exit 2
+    ;;
+esac

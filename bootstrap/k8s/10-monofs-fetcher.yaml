@@ -1,0 +1,57 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monofs-fetcher
+  namespace: __NAMESPACE__
+  labels: { app: monofs-fetcher }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: monofs-fetcher }
+  template:
+    metadata:
+      labels: { app: monofs-fetcher }
+    spec:
+      containers:
+        - name: fetcher
+          image: __IMAGE_PREFIX__/monofs-fetcher:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=9200
+            - --cache-dir=/data/cache
+            - --log-level=info
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: MONOFS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_ENCRYPTION_KEY }
+          ports:
+            - { name: http, containerPort: 9200 }
+          readinessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: cache, mountPath: /data/cache }
+      volumes:
+        - name: cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monofs-fetcher
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: monofs-fetcher }
+  ports:
+    - { name: http, port: 9200, targetPort: http }

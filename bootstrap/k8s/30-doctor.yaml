@@ -1,0 +1,119 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doctor-ingest
+  namespace: __NAMESPACE__
+  labels: { app: doctor-ingest }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: doctor-ingest }
+  template:
+    metadata:
+      labels: { app: doctor-ingest }
+    spec:
+      containers:
+        - name: ingest
+          image: __IMAGE_PREFIX__/doctor-ingest:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOCTOR_MONOFS_LOGENGINE_ADDR
+              value: monofs-router.__NAMESPACE__.svc.cluster.local:9090
+            - name: DOCTOR_MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
+            - name: DOCTOR_PRIVACY_HMAC_KEY
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_PRIVACY_HMAC_KEY }
+            - name: DOCTOR_DEFAULT_TENANT
+              value: default
+          ports:
+            - { name: otlp-grpc, containerPort: 4317 }
+            - { name: otlp-http, containerPort: 4318 }
+          readinessProbe:
+            tcpSocket: { port: otlp-http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: otlp-http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 250m, memory: 256Mi }
+            limits: { cpu: "2", memory: 1Gi }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doctor-ingest
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: doctor-ingest }
+  ports:
+    - { name: otlp-grpc, port: 4317, targetPort: otlp-grpc }
+    - { name: otlp-http, port: 4318, targetPort: otlp-http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doctor-query
+  namespace: __NAMESPACE__
+  labels: { app: doctor-query }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: doctor-query }
+  template:
+    metadata:
+      labels: { app: doctor-query }
+    spec:
+      containers:
+        - name: query
+          image: __IMAGE_PREFIX__/doctor-query:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOCTOR_MONOFS_LOGENGINE_ADDR
+              value: monofs-router.__NAMESPACE__.svc.cluster.local:9090
+            - name: DOCTOR_MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_QUERY_HTTP_ADDR
+              value: 0.0.0.0:18080
+            - name: DOCTOR_DEFAULT_TENANT
+              value: default
+          ports:
+            - { name: http, containerPort: 18080 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 200m, memory: 256Mi }
+            limits: { cpu: "2", memory: 1Gi }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doctor-query
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: doctor-query }
+  ports:
+    - { name: http, port: 18080, targetPort: http }

@@ -2,3 +2,6 @@
 *.local
 *.swp
 state/
+
+# Local bootstrap state (secrets, port-forward PIDs, rendered partitions)
+.strata/
