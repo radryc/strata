@@ -215,13 +215,32 @@ build_guardianctl() {
 
 push_partition() {
   local guardianctl="$1" dir="$2"
-  local url="${GUARDIAN_URL:-http://127.0.0.1:18090}"
   log "pushing partition bundle from $dir"
+  if [[ "${STRATA_MONOFS_DIRECT:-false}" == "true" && -n "${MONOFS_TOKEN:-}" ]]; then
+    "$guardianctl" --monofs-router "${MONOFS_DIRECT_ROUTER:-127.0.0.1:19090}" \
+      --monofs-token "$MONOFS_TOKEN" partition push --dir "$dir"
+    return
+  fi
+  local url="${GUARDIAN_URL:-http://127.0.0.1:18090}"
   "$guardianctl" --guardian-url "$url" partition push --dir "$dir"
 }
 
 print_ready() {
-  cat <<EOF
+  if [[ "${STRATA_AUTH_MODE:-direct}" == "authentik" ]]; then
+    cat <<EOF
+
+Strata is running.
+
+  Authentik   : http://127.0.0.1:29020  (akadmin / password)
+  Guardian UI : http://127.0.0.1:28090
+  Doctor UI   : http://127.0.0.1:28080
+  MonoFS UI   : http://127.0.0.1:28081
+  Sample app  : http://127.0.0.1:18088
+
+  Guardian CLI: http://127.0.0.1:18090
+EOF
+  else
+    cat <<EOF
 
 Strata is running.
 
@@ -229,6 +248,9 @@ Strata is running.
   Doctor UI   : http://127.0.0.1:18080
   MonoFS UI   : http://127.0.0.1:18081
   Sample app  : http://127.0.0.1:18088
+EOF
+  fi
+  cat <<EOF
 
   Kubernetes  : kubectl -n $STRATA_NAMESPACE get pods
   Logs        : kubectl -n $STRATA_NAMESPACE logs deploy/guardiand -f

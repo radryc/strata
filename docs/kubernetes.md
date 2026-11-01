@@ -88,6 +88,9 @@ kubectl -n strata port-forward svc/guardiand 18090:8090
 kubectl -n strata port-forward svc/doctor-query 18080:18080
 ```
 
+For login with Authentik, including creating users and setting passwords, see
+[access-and-login.md](access-and-login.md).
+
 ## 5. Onboard an application
 
 The sample partition is `bootstrap/partitions/onboarding-app`. For a real

@@ -32,6 +32,7 @@ else
   log "leaving the kind cluster in place"
   kubectl delete namespace "$STRATA_NAMESPACE" --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete namespace "$STRATA_APP_PARTITION" --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete namespace authentik --ignore-not-found >/dev/null 2>&1 || true
 fi
 
 if $PURGE; then

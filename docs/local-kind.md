@@ -28,28 +28,39 @@ The script:
 2. builds MonoFS (router, server, fetcher), Guardian, Doctor, and the example
    application images from the local checkouts;
 3. loads the images into kind;
-4. generates local-only MonoFS, Doctor ingest, and privacy HMAC secrets in
-   `.strata/dev.env`;
+4. generates local-only MonoFS and Doctor secrets in `.strata/dev.env`;
 5. starts the control plane in the `strata` namespace;
-6. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
-7. starts port-forwards.
+6. deploys Authentik and enables OIDC login;
+7. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
+8. starts port-forwards.
 
 When it finishes:
 
 | URL | What |
 |---|---|
-| <http://127.0.0.1:18090> | Guardian UI |
-| <http://127.0.0.1:18080> | Doctor UI |
-| <http://127.0.0.1:18081> | MonoFS UI |
+| <http://127.0.0.1:28090> | Guardian UI (Authentik login) |
+| <http://127.0.0.1:28080> | Doctor UI (Authentik login) |
+| <http://127.0.0.1:28081> | MonoFS UI (Authentik login) |
+| <http://127.0.0.1:29020> | Authentik |
 | <http://127.0.0.1:18088> | Sample application |
 
-Useful commands:
+Guardian, Doctor, and MonoFS all authenticate through Authentik. Doctor and
+MonoFS redirect anonymous browsers to the login page; use the **Log in** button
+on Guardian. The development Authentik admin is `akadmin` / `password`
+(`admin@example.com`, granted admin on all partitions).
+
+Create another user and set their password:
 
 ```bash
-kubectl -n strata get pods
-kubectl -n strata logs deploy/guardiand -f
-kubectl -n onboarding-app get deploy,svc,pods
+./scripts/create-authentik-user.sh \
+  --username alice --email alice@example.com \
+  --password 'choose-a-password' \
+  --grant maintainer --partition onboarding-app
 ```
+
+The direct endpoints `18090` (Guardian API), `19090` (MonoFS gRPC), and `9000`
+(MonoFS node) are for `guardianctl` and local debugging. Do not expose them
+outside your machine.
 
 ## Onboard a real application repository
 
@@ -97,3 +108,5 @@ The repository's `.gitignore` excludes `.strata/`.
   either load it into kind or push it to a registry the cluster can reach.
 - **Port already in use:** stop the conflicting process or edit the
   port-forward ports in `scripts/lib/bootstrap-common.sh`.
+- **Authentik login fails:** check `kubectl -n authentik get pods` and
+  `kubectl -n authentik logs deploy/authentik-server`.

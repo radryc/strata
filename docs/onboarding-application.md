@@ -156,10 +156,12 @@ account/region in the intent. `--pusher` is only needed with `--register`.
 
 ### Manifest-only path
 
-If you do not want to register a repository, push the partition directly:
+If you do not want to register a repository, push the partition directly.
+With OIDC enforced, use the MonoFS token path so no browser session is needed:
 
 ```bash
-guardianctl --guardian-url "$GUARDIAN_URL" partition push \
+guardianctl --monofs-router monofs.example.com:9090 \
+  --monofs-token "$MONOFS_TOKEN" partition push \
   --dir ../my-app/guardian/partitions/my-app
 ```
 
@@ -189,11 +191,12 @@ jobs:
           sed -i "s|image: .*|image: $IMAGE|" guardian/partitions/my-app/intents/app.yaml
       - name: Push partition
         env:
-          GUARDIAN_URL: ${{ secrets.GUARDIAN_URL }}
-          GUARDIAN_TOKEN: ${{ secrets.GUARDIAN_TOKEN }}
+          MONOFS_ROUTER: ${{ secrets.MONOFS_ROUTER }}
+          MONOFS_TOKEN: ${{ secrets.MONOFS_TOKEN }}
         run: |
           go install github.com/radryc/guardian/cmd/guardianctl@latest
-          guardianctl --guardian-url "$GUARDIAN_URL" partition push \
+          guardianctl --monofs-router "$MONOFS_ROUTER" \
+            --monofs-token "$MONOFS_TOKEN" partition push \
             --dir guardian/partitions/my-app
 ```
 

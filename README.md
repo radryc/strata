@@ -101,14 +101,32 @@ cd strata
 
 Equivalent to `./scripts/dev-kind-up.sh`. It builds MonoFS, Guardian, Doctor,
 and the MonoFS fetcher from the public checkouts, starts them in a local kind
-cluster, and onboards the example application partition.
+cluster, deploys Authentik for SSO, and onboards the example application
+partition.
 
 | URL | What |
 |---|---|
-| <http://127.0.0.1:18090> | Guardian UI |
-| <http://127.0.0.1:18080> | Doctor UI |
-| <http://127.0.0.1:18081> | MonoFS UI |
+| <http://127.0.0.1:28090> | Guardian UI (Authentik login) |
+| <http://127.0.0.1:28080> | Doctor UI (Authentik login) |
+| <http://127.0.0.1:28081> | MonoFS UI (Authentik login) |
+| <http://127.0.0.1:29020> | Authentik |
 | <http://127.0.0.1:18088> | Example application |
+
+Guardian, Doctor, and MonoFS all authenticate through Authentik. Doctor and
+MonoFS redirect anonymous browsers to the login page; use the **Log in** button
+on Guardian. The development Authentik admin is `akadmin` / `password`
+(`admin@example.com`, admin on all partitions). Create another user and set the
+password with:
+
+```bash
+./scripts/create-authentik-user.sh \
+  --username alice --email alice@example.com \
+  --password 'choose-a-password' \
+  --grant maintainer --partition onboarding-app
+```
+
+See [docs/access-and-login.md](docs/access-and-login.md) for Authentik on
+Kubernetes and **Amazon Cognito** on AWS.
 
 See [docs/local-kind.md](docs/local-kind.md) for details and teardown.
 

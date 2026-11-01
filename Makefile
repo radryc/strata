@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help up down k8s k8s-down aws onboard
+.PHONY: help up down k8s k8s-down aws onboard authentik
 
 help:
 	@printf 'Strata public bootstrap\n\n'
@@ -10,6 +10,7 @@ help:
 	@printf '  make k8s-down  remove Strata from the current cluster\n'
 	@printf '  make aws       deploy the AWS CDK stack\n'
 	@printf '  make onboard   onboard an application repo (REPO=../my-app)\n'
+	@printf '  make authentik  re-apply the local Authentik SSO setup\n'
 
 up:
 	./scripts/dev-kind-up.sh
@@ -29,3 +30,6 @@ aws:
 onboard:
 	@test -n "$(REPO)" || (printf 'usage: make onboard REPO=../my-app [ARGS=...]\n' >&2; exit 2)
 	./scripts/onboard-app.sh --repo "$(REPO)" $(ARGS)
+
+authentik:
+	./scripts/dev-kind-authentik.sh $(ARGS)
