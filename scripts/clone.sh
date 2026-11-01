@@ -63,7 +63,9 @@ done < "$ROOT/repos.txt"
 
 printf '\nDone.\n\n'
 printf 'Next:\n'
-printf '  cd %s/monofs && make build\n' "$TARGET"
-printf '  cd %s/guardian && mkdir -p bin && go build -o bin/guardianctl ./cmd/guardianctl\n' "$TARGET"
-printf '  cd %s/doctor && make build\n' "$TARGET"
-printf '  cd %s/monofs && make run-cluster\n' "$TARGET"
+printf '  cd %s/strata && ./scripts/dev-kind-up.sh\n' "$TARGET"
+printf '\n'
+printf 'Other paths:\n'
+printf '  ./scripts/k8s-up.sh --build --push   # existing Kubernetes cluster\n'
+printf '  ./scripts/aws-up.sh                  # AWS CDK\n'
+printf '  ./scripts/onboard-app.sh --repo DIR  # onboard an application repo\n'

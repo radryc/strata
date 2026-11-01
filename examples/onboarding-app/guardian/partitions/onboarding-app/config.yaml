@@ -1,0 +1,28 @@
+apiVersion: guardian/v1alpha1
+kind: Partition
+metadata:
+  name: onboarding-app
+  labels:
+    role: application
+spec:
+  defaults:
+    observability:
+      enabled: false
+    probes:
+      enabled: true
+      interval: 30s
+      timeout: 3s
+      retries: 2
+      httpPaths: ["/healthz", "/"]
+      tcpPorts: [8080]
+      maxTargets: 20
+      allowExternal: false
+  deletionPolicy: destroy
+  reconciliation:
+    mode: auto
+    interval: 1m
+  labels:
+    stack: k8s
+    component: onboarding-app
+    topology: kubernetes
+    managedBy: guardian

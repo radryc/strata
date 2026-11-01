@@ -1,0 +1,20 @@
+apiVersion: guardian/v1alpha1
+kind: Intent
+metadata:
+  name: app
+spec:
+  intentType: standard
+  implementation: cdk
+  targetPusher: aws-123456789012
+  target:
+    account: "123456789012"
+    region: eu-west-1
+  locked: false
+  assets:
+    - type: CDKStack
+      name: onboarding-app-stack
+      payload:
+        aws: /partitions/aws-app/payloads/stack.yaml
+      properties:
+        context:
+          appName: onboarding-app

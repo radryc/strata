@@ -1,0 +1,5 @@
+# Describes the synthesized CDK assembly. Generate it with:
+#   cd cdk && npm ci && npx cdk synth --output ../guardian/partitions/aws-app/payloads/aws
+sourceType: cdk
+prebuiltAssemblyDir: /partitions/aws-app/payloads/aws
+stackName: OnboardingAppStack
