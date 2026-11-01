@@ -14,9 +14,9 @@ The only dynamic values are placeholders:
 | Placeholder | Replaced by | Value in the local quickstart |
 |---|---|---|
 | `__APP_IMAGE__` | `dev-kind-up.sh` / `render_template` | `strata/onboarding-app:dev` |
-| `__IMAGE_PREFIX__` | image prefix renderer | `strata` |
-| `__IMAGE_TAG__` | image tag renderer | `dev` |
-| `__NAMESPACE__` | namespace renderer | `strata` |
+
+The same renderer also handles `__IMAGE_PREFIX__`, `__IMAGE_TAG__`, and
+`__NAMESPACE__` in the platform manifests under `bootstrap/k8s/`.
 
 `dev-kind-up.sh` renders the partition into `.strata/partitions/` and pushes it
 with `guardianctl partition push`. The checked-in files are never modified.

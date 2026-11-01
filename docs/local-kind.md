@@ -17,16 +17,19 @@ with Guardian, MonoFS, Doctor, and a sample application.
 From the `strata` repository:
 
 ```bash
-./scripts/clone.sh          # only needed once; clones the sibling public repos
-./scripts/dev-kind-up.sh
+./scripts/bootstrap.sh up
 ```
+
+`bootstrap.sh up` delegates to `dev-kind-up.sh`. Both are equivalent.
 
 The script:
 
 1. creates a `strata-dev` kind cluster;
-2. builds MonoFS, Guardian, and Doctor images from the local checkouts;
+2. builds MonoFS (router, server, fetcher), Guardian, Doctor, and the example
+   application images from the local checkouts;
 3. loads the images into kind;
-4. generates local-only MonoFS and Doctor tokens in `.strata/dev.env`;
+4. generates local-only MonoFS, Doctor ingest, and privacy HMAC secrets in
+   `.strata/dev.env`;
 5. starts the control plane in the `strata` namespace;
 6. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
 7. starts port-forwards.

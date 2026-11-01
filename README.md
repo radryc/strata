@@ -82,19 +82,26 @@ Other repositories on [@radryc](https://github.com/radryc?tab=repositories) —
 `memegen`, `devdns`, `awsasset`, `promtest`, and friends — are separate
 experiments, not part of Strata.
 
-## Quickstart
+## Bootstrap
 
-### Local kind cluster
+Prerequisites: Docker with BuildKit, `kind`, `kubectl`, Go 1.26+, and OpenSSL.
+Node 22 is only needed if you rebuild the Guardian UI.
+
+All paths below start from the public `strata` checkout. `scripts/clone.sh` is
+idempotent, and `dev-kind-up.sh` calls it automatically if the sibling
+repositories are missing.
+
+### One command: local kind cluster
 
 ```bash
 git clone https://github.com/radryc/strata.git
 cd strata
-./scripts/clone.sh
-./scripts/dev-kind-up.sh
+./scripts/bootstrap.sh up
 ```
 
-This builds MonoFS, Guardian, and Doctor from the public checkouts, starts them
-in a local kind cluster, and onboards the example application partition.
+Equivalent to `./scripts/dev-kind-up.sh`. It builds MonoFS, Guardian, Doctor,
+and the MonoFS fetcher from the public checkouts, starts them in a local kind
+cluster, and onboards the example application partition.
 
 | URL | What |
 |---|---|
@@ -109,7 +116,7 @@ See [docs/local-kind.md](docs/local-kind.md) for details and teardown.
 
 ```bash
 export STRATA_IMAGE_PREFIX=ghcr.io/your-org/strata
-./scripts/k8s-up.sh --build --push
+./scripts/bootstrap.sh k8s --build --push
 ```
 
 See [docs/kubernetes.md](docs/kubernetes.md).
@@ -117,7 +124,7 @@ See [docs/kubernetes.md](docs/kubernetes.md).
 ### AWS
 
 ```bash
-./scripts/aws-up.sh --with-pusher -y
+./scripts/bootstrap.sh aws --with-pusher -y
 ```
 
 The wrapper runs the public `aws` CDK project with your active AWS profile and
@@ -128,7 +135,7 @@ region. See [docs/aws.md](docs/aws.md).
 Each application owns a dedicated partition inside its own repository:
 
 ```bash
-./scripts/onboard-app.sh --repo ../my-app
+./scripts/bootstrap.sh onboard --repo ../my-app
 ```
 
 See [docs/onboarding-application.md](docs/onboarding-application.md) for the
@@ -137,7 +144,8 @@ partition template is documented in
 [docs/bootstrap-partition.md](docs/bootstrap-partition.md).
 
 The older `demo-divisions/demo.sh` harness remains available for the private
-multi-account demo; it is no longer required for the public quickstart.
+multi-account demo through `./scripts/bootstrap.sh demo up`; it is not required
+for the public Bootstrap path.
 
 ## Build from source
 
@@ -199,8 +207,9 @@ make run-cluster        # router on localhost:9090, UI on localhost:8080
 Then point Guardian and Doctor at the router (`localhost:9090`) and follow
 their READMEs for the first partition and telemetry query.
 
-Prerequisites are Go 1.26.4, Node 22, FUSE 3 for mounting, Docker for image
-builds, and `kubectl` plus `kind` for the demo.
+Prerequisites are Go 1.26+, Node 22 for the UI, FUSE 3 for mounting, Docker for
+image builds, OpenSSL for generated secrets, and `kubectl` plus `kind` for the
+local bootstrap.
 
 ## Status
 

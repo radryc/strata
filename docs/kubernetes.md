@@ -24,7 +24,7 @@ docker login ghcr.io
 ## 2. Build and push
 
 ```bash
-./scripts/k8s-up.sh --build --push --no-port-forward
+./scripts/bootstrap.sh k8s --build --push --no-port-forward
 ```
 
 Or build locally and push with your own pipeline:
@@ -32,6 +32,7 @@ Or build locally and push with your own pipeline:
 ```bash
 docker build --target router -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" ../monofs
 docker build --target server -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" ../monofs
+docker build --target fetcher -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" ../monofs
 DOCKER_BUILDKIT=1 docker build \
   --build-context monofs=../monofs --build-context kvs=../kvs \
   -t "$STRATA_IMAGE_PREFIX/guardiand:$STRATA_IMAGE_TAG" ../guardian
@@ -57,7 +58,8 @@ kubectl create namespace strata
 kubectl -n strata create secret generic strata-secrets \
   --from-literal="MONOFS_TOKEN=$(openssl rand -hex 32)" \
   --from-literal="MONOFS_ENCRYPTION_KEY=$(openssl rand -hex 32)" \
-  --from-literal="DOCTOR_INGEST_AUTH_TOKEN=$(openssl rand -hex 32)"
+  --from-literal="DOCTOR_INGEST_AUTH_TOKEN=$(openssl rand -hex 32)" \
+  --from-literal="DOCTOR_PRIVACY_HMAC_KEY=$(openssl rand -hex 32)"
 ```
 
 Never commit these values. The MonoFS encryption key is required to read

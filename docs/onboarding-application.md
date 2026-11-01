@@ -151,8 +151,8 @@ The script reads `.guardian/config.yaml` and pushes
 repository in Guardian (`repo add` + `repo import`) for repo-driven syncs; the
 pusher must already be registered for that mode.
 
-For an AWS pusher, pass `--pusher aws-<account>` and add the account/region to
-the intent.
+For an AWS pusher, set the pusher name in `.guardian/config.yaml` and the
+account/region in the intent. `--pusher` is only needed with `--register`.
 
 ### Manifest-only path
 
