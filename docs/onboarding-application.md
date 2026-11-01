@@ -146,9 +146,10 @@ export GUARDIAN_URL=http://guardian.example.com
 ./scripts/onboard-app.sh --repo ../my-app --pusher k8s-main
 ```
 
-The script reads `.guardian/config.yaml`, registers the repository, imports
-`guardian/partitions/**`, and triggers a reconcile. The equivalent manual
-commands are `guardianctl repo add` followed by `guardianctl repo import`.
+The script reads `.guardian/config.yaml` and pushes
+`guardian/partitions/<name>` directly. Pass `--register` to also record the
+repository in Guardian (`repo add` + `repo import`) for repo-driven syncs; the
+pusher must already be registered for that mode.
 
 For an AWS pusher, pass `--pusher aws-<account>` and add the account/region to
 the intent.
@@ -192,10 +193,8 @@ jobs:
           GUARDIAN_TOKEN: ${{ secrets.GUARDIAN_TOKEN }}
         run: |
           go install github.com/radryc/guardian/cmd/guardianctl@latest
-          guardianctl --guardian-url "$GUARDIAN_URL" repo add \
-            --name my-app --pusher k8s-main --partition my-app --source "$PWD"
-          guardianctl --guardian-url "$GUARDIAN_URL" repo import \
-            --name my-app --source "$PWD"
+          guardianctl --guardian-url "$GUARDIAN_URL" partition push \
+            --dir guardian/partitions/my-app
 ```
 
 Use a dedicated Guardian service token or OIDC workload identity in CI. Do not
