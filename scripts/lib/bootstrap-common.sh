@@ -213,6 +213,77 @@ build_guardianctl() {
   printf '%s\n' "$bin/guardianctl"
 }
 
+build_monofs_admin() {
+  local bin="$STRATA_STATE_DIR/bin"
+  ensure_dir "$bin"
+  log "building monofs-admin" >&2
+  (cd "$STRATA_ROOT/../monofs" && go build -o "$bin/monofs-admin" ./cmd/monofs-admin)
+  printf '%s\n' "$bin/monofs-admin"
+}
+
+ingest_public_repo() {
+  local admin="$1" url="$2" router="${3:-${MONOFS_DIRECT_ROUTER:-127.0.0.1:19090}}"
+  log "ingesting $url into MonoFS"
+  "$admin" ingest \
+    --router "$router" \
+    --source "$url" \
+    --ingestion-type git \
+    --fetch-type blob \
+    --replicate-data=true \
+    --token "${MONOFS_TOKEN:-}"
+}
+
+# Ingest the public platform repositories into MonoFS, register them with
+# Guardian, and import their guardian/partitions/<name> bundles. The partitions
+# observe the bootstrap-started workloads, so importing them does not create a
+# second copy of MonoFS, Guardian, or Doctor.
+register_platform_repositories() {
+  local guardianctl="$1" router="$2"
+  local repo registered admin
+  if [[ -z "$router" ]]; then
+    warn "no MonoFS router address; skipping platform repo ingestion/registration"
+    return 0
+  fi
+  if [[ "$STRATA_NAMESPACE" != "strata" ]]; then
+    warn "platform partitions target the default 'strata' namespace; custom STRATA_NAMESPACE requires editing the guardian/partitions manifests in monofs, guardian, and doctor"
+  fi
+  admin="$(build_monofs_admin)"
+
+  for repo in monofs guardian doctor; do
+    if ! ingest_public_repo "$admin" "https://github.com/radryc/$repo" "$router"; then
+      warn "could not ingest https://github.com/radryc/$repo into MonoFS; platform partition will use the local checkout fallback"
+    fi
+    registered=false
+    for _ in $(seq 1 30); do
+      if "$guardianctl" --monofs-router "$router" --monofs-token "$MONOFS_TOKEN" \
+        repo add \
+        --name "$repo" \
+        --pusher k8s-main \
+        --partition "$repo" \
+        --source "https://github.com/radryc/$repo" \
+        --source-type git \
+        --description "Strata platform: $repo" >/dev/null 2>&1; then
+        registered=true
+        break
+      fi
+      sleep 2
+    done
+    if ! $registered; then
+      warn "could not register platform repo $repo (is the k8s-main pusher registered?)"
+    fi
+  done
+
+  for repo in monofs guardian doctor; do
+    if ! "$guardianctl" --monofs-router "$router" --monofs-token "$MONOFS_TOKEN" \
+      repo import --name "$repo"; then
+      warn "MonoFS import for $repo failed; trying the local checkout"
+      "$guardianctl" --monofs-router "$router" --monofs-token "$MONOFS_TOKEN" \
+        repo import --name "$repo" --source "$STRATA_ROOT/../$repo" ||
+        warn "local repo import for $repo failed (no guardian/partitions/$repo?)"
+    fi
+  done
+}
+
 push_partition() {
   local guardianctl="$1" dir="$2"
   log "pushing partition bundle from $dir"

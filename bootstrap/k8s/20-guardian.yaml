@@ -92,6 +92,12 @@ spec:
             - name: GUARDIAN_PUSHERS
               value: k8s-main:/.queues/k8s-main
             - name: GUARDIAN_REPO_IMPORT_ENABLED
+              value: "true"
+            - name: GUARDIAN_REPO_IMPORT_INTERVAL
+              value: 30s
+            - name: GUARDIAN_REPO_IMPORT_SHARDS
+              value: "1"
+            - name: GUARDIAN_REPO_IMPORT_LEASE
               value: "false"
             - name: GUARDIAN_RECONCILE_INTERVAL
               value: 1m
