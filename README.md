@@ -101,8 +101,9 @@ cd strata
 
 Equivalent to `./scripts/dev-kind-up.sh`. It builds MonoFS, Guardian, Doctor,
 and the MonoFS fetcher from the public checkouts, starts them in a local kind
-cluster, deploys Authentik for SSO, and onboards the example application
-partition.
+cluster, deploys Authentik for SSO, imports the platform partitions from the
+`monofs`, `guardian`, and `doctor` repositories, and onboards the example
+application partition.
 
 | URL | What |
 |---|---|

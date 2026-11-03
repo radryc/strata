@@ -18,6 +18,19 @@ bootstrap/
     └── intents/app.yaml
 ```
 
+The platform repositories also own their Guardian partitions:
+
+```text
+monofs/guardian/partitions/monofs/
+guardian/guardian/partitions/guardian/
+doctor/guardian/partitions/doctor/
+```
+
+`dev-kind-up.sh` ingests those repositories into MonoFS, registers them with
+Guardian, and imports the partitions. The partitions observe the
+bootstrap-started workloads and add probes; they do not create duplicate
+deployments. The manifests use the default `strata` namespace.
+
 The only placeholders in the prepared partition are `__APP_IMAGE__`,
 `__IMAGE_PREFIX__`, `__IMAGE_TAG__`, and `__NAMESPACE__`. The bootstrap renders
 them into `.strata/`; the checked-in files are never modified. No private keys,

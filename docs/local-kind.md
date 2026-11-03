@@ -11,6 +11,8 @@ with Guardian, MonoFS, Doctor, and a sample application.
 - Go 1.26+
 - OpenSSL
 - Node 22 only if you build the Guardian UI from source
+- Network access to GitHub for the first MonoFS ingestion of the platform
+  repositories
 
 ## One command
 
@@ -31,8 +33,12 @@ The script:
 4. generates local-only MonoFS and Doctor secrets in `.strata/dev.env`;
 5. starts the control plane in the `strata` namespace;
 6. deploys Authentik and enables OIDC login;
-7. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
-8. starts port-forwards.
+7. ingests the public `monofs`, `guardian`, and `doctor` repositories into
+   MonoFS and registers them with Guardian;
+8. imports each repository's `guardian/partitions/<name>` bundle, which adds
+   observed platform partitions and probes for MonoFS, Guardian, and Doctor;
+9. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
+10. starts port-forwards.
 
 When it finishes:
 
@@ -61,6 +67,28 @@ Create another user and set their password:
 The direct endpoints `18090` (Guardian API), `19090` (MonoFS gRPC), and `9000`
 (MonoFS node) are for `guardianctl` and local debugging. Do not expose them
 outside your machine.
+
+## Platform partitions
+
+The public platform repositories own their Guardian partitions:
+
+```text
+monofs/guardian/partitions/monofs/
+guardian/guardian/partitions/guardian/
+doctor/guardian/partitions/doctor/
+```
+
+Each partition observes the workloads that the bootstrap already started
+(`observeExisting: true`) and adds health probes. This keeps the
+chicken-and-egg bootstrap simple while making the platform visible in Guardian.
+
+The bootstrap ingests the GitHub remotes into MonoFS, registers the repositories
+with Guardian, and imports the partitions. The partition manifests target the
+default `strata` namespace and are safe to re-import; they do not duplicate the
+bootstrap deployments.
+
+If you change the platform images or add workloads later, update the partition
+manifest in that repository and let Guardian's repo-import loop pick it up.
 
 ## Onboard a real application repository
 

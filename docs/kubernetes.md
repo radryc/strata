@@ -81,6 +81,16 @@ The manifests live in `bootstrap/k8s/`:
 | `20-guardian.yaml` | Guardian daemon, Kubernetes pusher, RBAC |
 | `30-doctor.yaml` | OTLP ingest + Doctor query |
 
+The script also ingests the `monofs`, `guardian`, and `doctor` repositories into
+MonoFS and imports their `guardian/partitions/<name>` bundles. This requires a
+reachable MonoFS router: either the local `19090` port-forward or an explicit
+`MONOFS_ROUTER`. With `--no-port-forward`, set it explicitly:
+
+```bash
+MONOFS_ROUTER=router.example.com:9090 \
+  ./scripts/k8s-up.sh --no-port-forward --skip-app
+```
+
 Expose Guardian/Doctor through your ingress or `kubectl port-forward`:
 
 ```bash

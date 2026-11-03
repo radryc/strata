@@ -142,6 +142,12 @@ else
 fi
 export STRATA_AUTH_MODE=authentik
 
+if ! $NO_PORT_FORWARD; then
+  register_platform_repositories "$GUARDIANCTL" "127.0.0.1:19090"
+else
+  warn "no port-forward: skipping platform repo ingestion/registration"
+fi
+
 log "rendering and pushing the onboarding application partition"
 if ! $NO_PORT_FORWARD; then
   export STRATA_MONOFS_DIRECT=true

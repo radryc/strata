@@ -99,6 +99,14 @@ if ! $NO_PORT_FORWARD; then
   start_port_forward doctor "svc/doctor-query" 18080 18080 || true
 fi
 
+if ! $NO_PORT_FORWARD; then
+  register_platform_repositories "$GUARDIANCTL" "127.0.0.1:19090"
+elif [[ -n "${MONOFS_ROUTER:-}" ]]; then
+  register_platform_repositories "$GUARDIANCTL" "$MONOFS_ROUTER"
+else
+  warn "skipping platform repo ingestion/registration: set MONOFS_ROUTER or enable port-forwarding"
+fi
+
 if ! $SKIP_APP; then
   if $NO_PORT_FORWARD && [[ -z "${GUARDIAN_URL:-}" ]]; then
     warn "skipping app partition push: set GUARDIAN_URL or enable port-forwarding"
