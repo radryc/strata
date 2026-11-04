@@ -34,6 +34,7 @@ spec:
             - --node-id=node-a
             - --db-path=/data/db
             - --logengine-dir=/data/logengine
+            - --logquery-sidecar=127.0.0.1:9101
             - --git-cache=/data/git
             - --kvs-data-dir=/data/kvs
             - --kvs-api-addr=127.0.0.1:9000
@@ -59,14 +60,59 @@ spec:
           readinessProbe:
             tcpSocket: { port: api }
             initialDelaySeconds: 5
-            periodSeconds: 10
+            periodSeconds: 5
+            failureThreshold: 6
           livenessProbe:
             tcpSocket: { port: api }
-            initialDelaySeconds: 20
+            initialDelaySeconds: 60
             periodSeconds: 20
+            failureThreshold: 3
+          startupProbe:
+            tcpSocket: { port: api }
+            periodSeconds: 5
+            failureThreshold: 60
           resources:
             requests: { cpu: 250m, memory: 256Mi }
             limits: { cpu: "2", memory: 2Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+        - name: logquery
+          image: __IMAGE_PREFIX__/monofs-logquery:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          args:
+            - --addr=:9101
+            - --logengine-dir=/data/logengine
+            - --duckdb-temp-dir=/tmp/duckdb
+            - --duckdb-memory-limit=512MB
+            - --duckdb-threads=1
+            - --duckdb-max-conns=2
+            - --duckdb-max-concurrent-queries=1
+            - --max-metric-series=200000
+            - --isolate-sql-queries=true
+          env:
+            - name: GOMEMLIMIT
+              value: 1200MiB
+            - name: GOGC
+              value: "50"
+          ports:
+            - { name: duckdb, containerPort: 9101 }
+          readinessProbe:
+            tcpSocket: { port: duckdb }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            tcpSocket: { port: duckdb }
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+          startupProbe:
+            tcpSocket: { port: duckdb }
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { cpu: "1", memory: 2Gi }
           volumeMounts:
             - { name: data, mountPath: /data }
       volumes:
