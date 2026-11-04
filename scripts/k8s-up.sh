@@ -46,6 +46,7 @@ if $BUILD; then
   docker build --target router -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
   docker build --target server -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
   docker build --target fetcher -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  docker build -f "$ROOT/../monofs/Dockerfile.logquery" -t "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
   DOCKER_BUILDKIT=1 docker build --build-context "monofs=$ROOT/../monofs" --build-context "kvs=$ROOT/../kvs" \
     -t "$STRATA_IMAGE_PREFIX/guardiand:$STRATA_IMAGE_TAG" "$ROOT/../guardian"
   DOCKER_BUILDKIT=1 docker build --build-context "monofs=$ROOT/../monofs" --build-context "kvs=$ROOT/../kvs" \
@@ -61,7 +62,7 @@ fi
 if $PUSH; then
   require docker "install Docker"
   log "pushing images to $STRATA_IMAGE_PREFIX"
-  for image in monofs-router monofs-server monofs-fetcher guardiand guardian-pusher-k8s doctor-ingest doctor-query; do
+  for image in monofs-router monofs-server monofs-fetcher monofs-logquery guardiand guardian-pusher-k8s doctor-ingest doctor-query; do
     docker push "$STRATA_IMAGE_PREFIX/$image:$STRATA_IMAGE_TAG"
   done
   docker push "$STRATA_APP_IMAGE"

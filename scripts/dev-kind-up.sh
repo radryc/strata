@@ -56,6 +56,7 @@ if ! $SKIP_BUILD; then
   docker build --target router -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
   docker build --target server -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
   docker build --target fetcher -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  docker build -f "$ROOT/../monofs/Dockerfile.logquery" -t "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
 
   log "building Guardian images"
   DOCKER_BUILDKIT=1 docker build \
@@ -91,6 +92,7 @@ for image in \
   "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" \
   "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" \
   "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" \
+  "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" \
   "$STRATA_IMAGE_PREFIX/guardiand:$STRATA_IMAGE_TAG" \
   "$STRATA_IMAGE_PREFIX/guardian-pusher-k8s:$STRATA_IMAGE_TAG" \
   "$STRATA_IMAGE_PREFIX/doctor-ingest:$STRATA_IMAGE_TAG" \

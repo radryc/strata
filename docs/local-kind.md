@@ -138,3 +138,11 @@ The repository's `.gitignore` excludes `.strata/`.
   port-forward ports in `scripts/lib/bootstrap-common.sh`.
 - **Authentik login fails:** check `kubectl -n authentik get pods` and
   `kubectl -n authentik logs deploy/authentik-server`.
+
+## DuckDB query sidecar
+
+The MonoFS server pod includes a `monofs-logquery` sidecar that reads the same
+node-local logengine volume and serves the DuckDB-backed telemetry query RPCs.
+`monofs-server` is started with `--logquery-sidecar=127.0.0.1:9101`; the
+sidecar is built from `monofs/Dockerfile.logquery` and loaded into kind with
+the other MonoFS images. This is what powers Doctor's read-only SQL console.

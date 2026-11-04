@@ -118,3 +118,8 @@ single Guardian replica. Before production:
 - terminate TLS at the ingress and enable `GUARDIAN_ENABLE_HSTS=true`;
 - set `DOCTOR_MONOFS_TLS_REQUIRE=true` and mount MonoFS client certificates;
 - replace the generated secrets with your secret manager.
+
+The MonoFS server Deployment also runs the `monofs-logquery` DuckDB sidecar in
+the same pod (sharing `/data`) and passes `--logquery-sidecar=127.0.0.1:9101`.
+Build and push the sidecar image with the other MonoFS images; Doctor's SQL
+console depends on it.
