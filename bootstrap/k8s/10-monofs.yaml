@@ -89,6 +89,10 @@ spec:
             - --duckdb-max-concurrent-queries=1
             - --max-metric-series=200000
             - --isolate-sql-queries=true
+            - --query-mode=auto
+            - --native-max-limit=500
+            - --native-max-range=6h
+            - --duckdb-queue-threshold=2
           env:
             - name: GOMEMLIMIT
               value: 1200MiB
