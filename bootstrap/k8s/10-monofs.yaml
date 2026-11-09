@@ -73,7 +73,7 @@ spec:
             failureThreshold: 60
           resources:
             requests: { cpu: 250m, memory: 256Mi }
-            limits: { cpu: "2", memory: 6Gi }
+            limits: { cpu: "3", memory: 6Gi }
           volumeMounts:
             - { name: data, mountPath: /data }
         - name: logquery
@@ -95,7 +95,7 @@ spec:
             - --duckdb-queue-threshold=2
           env:
             - name: GOMEMLIMIT
-              value: 1200MiB
+              value: 900MiB
             - name: GOGC
               value: "50"
           ports:
@@ -116,7 +116,7 @@ spec:
             failureThreshold: 60
           resources:
             requests: { cpu: 100m, memory: 512Mi }
-            limits: { cpu: "1", memory: 2Gi }
+            limits: { cpu: "1", memory: 3Gi }
           volumeMounts:
             - { name: data, mountPath: /data }
       volumes:
