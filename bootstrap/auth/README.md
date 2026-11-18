@@ -51,5 +51,6 @@ Open <http://127.0.0.1:29020> and sign in as `akadmin` / `password`.
   --partition onboarding-app
 ```
 
-The `--grant` flag patches the Guardian/MonoFS `MONOFS_AUTHZ_GRANTS_JSON` and
-restarts the deployments. The email is what authorization grants match.
+`--grant` prints the access-policy YAML entry to add. Edit
+`access/envs/<env>.yaml` and publish it with `guardianctl access publish`. The
+email is the subject the access policy matches.

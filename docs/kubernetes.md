@@ -33,6 +33,7 @@ Or build locally and push with your own pipeline:
 docker build --target router -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" ../monofs
 docker build --target server -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" ../monofs
 docker build --target fetcher -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" ../monofs
+docker build -f ../monofs/Dockerfile.logquery -t "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" ../monofs
 DOCKER_BUILDKIT=1 docker build \
   --build-context monofs=../monofs --build-context kvs=../kvs \
   -t "$STRATA_IMAGE_PREFIX/guardiand:$STRATA_IMAGE_TAG" ../guardian

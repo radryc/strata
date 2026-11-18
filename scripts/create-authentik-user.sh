@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create a user in Authentik (and optionally grant it partition access).
+# Create a user in Authentik (and optionally print the access-policy grant to add).
 #
 #   ./scripts/create-authentik-user.sh --username alice --email alice@example.com \
 #       [--name "Alice Example"] [--password secret] [--groups g1,g2] [--grant viewer|ingester|maintainer|admin] [--partition '*']
@@ -98,63 +98,32 @@ if [[ -n "$GROUP_LIST" ]]; then
     done
 fi
 
-# Optional: grant partition access by patching the router + guardiand env.
+# Optional: print the access-policy grant to add. Authorization is decided by
+# the repo-managed ACL (access/envs/<env>.yaml), not by process environment.
 if [[ -n "$GRANT_ROLE" ]]; then
     case "$GRANT_ROLE" in viewer|ingester|maintainer|admin) ;; *)
         echo "error: --grant must be viewer|ingester|maintainer|admin" >&2; exit 1 ;;
     esac
-    add_grant() {
-        local ns=$1 deploy=$2
-        [[ -n "$deploy" ]] || return 0
-        local cur merged
-        cur=$(kubectl -n "$ns" get deploy "$deploy" \
-            -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='MONOFS_AUTHZ_GRANTS_JSON')].value}" 2>/dev/null || true)
-        [[ -n "$cur" ]] || cur='[]'
-        merged=$(echo "$cur" | jq -c --arg s "$EMAIL" --arg p "$GRANT_PARTITION" --arg r "$GRANT_ROLE" \
-            '. + [{subject:$s,partition:$p,role:$r}]')
-        kubectl -n "$ns" set env "deploy/${deploy}" "MONOFS_AUTHZ_GRANTS_JSON=${merged}" >/dev/null
-        kubectl -n "$ns" rollout restart "deploy/${deploy}" >/dev/null
-        echo "  granted ${GRANT_ROLE} on '${GRANT_PARTITION}' via ${ns}/${deploy} (restarting)"
-    }
-    # Public bootstrap layout: both platform deployments live in the "strata"
-    # namespace. Fall back to the legacy split namespaces when present.
-    if kubectl -n strata get deploy monofs-router >/dev/null 2>&1; then
-        echo "→ granting ${EMAIL} ${GRANT_ROLE} on '${GRANT_PARTITION}'"
-        add_grant strata monofs-router || echo "  ⚠ router grant patch failed"
-        add_grant strata guardiand     || echo "  ⚠ guardiand grant patch failed"
-    else
-        ROUTER=$(kubectl -n monofs get deploy -o name 2>/dev/null | grep -m1 router | sed 's|.*/||' || true)
-        echo "→ granting ${EMAIL} ${GRANT_ROLE} on '${GRANT_PARTITION}'"
-        add_grant monofs "$ROUTER"   || echo "  ⚠ router grant patch failed"
-        add_grant guardian guardiand || echo "  ⚠ guardiand grant patch failed"
-    fi
-
-    # The grant patch restarts the platform pods; refresh the local
-    # port-forwards so the UI and CLI reach the new pods.
-    if [[ -f "$STRATA_ENV_FILE" ]]; then
-        load_env
-        for name in guardian ui-guardian ui-doctor ui-monofs monofs-grpc monofs-node; do
-            pid_file="$STRATA_STATE_DIR/pids/$name.pid"
-            if [[ -f "$pid_file" ]]; then
-                kill "$(cat "$pid_file")" 2>/dev/null || true
-                rm -f "$pid_file"
-            fi
-        done
-        start_port_forward guardian "svc/guardiand" 18090 8090 || true
-        start_port_forward ui-guardian "svc/guardiand" 28090 8090 || true
-        start_port_forward ui-doctor "svc/doctor-query" 28080 18080 || true
-        start_port_forward ui-monofs "svc/monofs-router" 28081 8080 || true
-        start_port_forward monofs-grpc "svc/monofs-router" 19090 9090 || true
-        start_port_forward monofs-node "svc/monofs-server" 9000 9000 || true
-        start_app_port_forward || true
-    fi
+    echo
+    echo "→ grant requested: ${EMAIL} ${GRANT_ROLE} on '${GRANT_PARTITION}'"
+    echo "  Add this to access/envs/<env>.yaml under users: (add logs/traces/monofs"
+    echo "  scopes as appropriate), then publish it:"
+    echo
+    echo "    users:"
+    echo "      ${EMAIL}:"
+    echo "        partitions: [\"${GRANT_PARTITION}\"]"
+    echo "        role: ${GRANT_ROLE}"
+    echo
+    echo "    guardianctl access lint    --file access/envs/dev.yaml"
+    echo "    guardianctl access publish --file access/envs/dev.yaml --env dev"
+    echo
 fi
 
 cat <<EOF
 
 ✓ user ready
   username: ${USERNAME}
-  email:    ${EMAIL}   (this is what authz grants match)
+  email:    ${EMAIL}   (this is the access-policy subject)
   password: ${PASSWORD}
 
 Sign in at the Guardian, Doctor, or MonoFS login URL with:
@@ -165,7 +134,7 @@ For CLI access, use the OIDC device flow:
   guardianctl auth login --issuer http://127.0.0.1:${PORT}/application/o/monofs/ \
     --client-id monofs --client-secret monofs-oidc-secret
 
-If you did NOT pass --grant, the user is authenticated but has no partition
-access yet. Grant it later by re-running with --grant, e.g.:
-  ./scripts/create-authentik-user.sh --username ${USERNAME} --email ${EMAIL} --grant ingester --partition doctor
+Add partition access by editing access/envs/<env>.yaml and publishing it with
+\`guardianctl access publish\`. The access policy is the single runtime
+authorization source for Guardian, MonoFS, and Doctor.
 EOF

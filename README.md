@@ -162,10 +162,6 @@ repository layout, CI example, and AWS/Kubernetes variants. The prepared
 partition template is documented in
 [docs/bootstrap-partition.md](docs/bootstrap-partition.md).
 
-The older `demo-divisions/demo.sh` harness remains available for the private
-multi-account demo through `./scripts/bootstrap.sh demo up`; it is not required
-for the public Bootstrap path.
-
 ## Build from source
 
 Clone this repository, then let the script create the sibling checkout layout
@@ -229,6 +225,9 @@ their READMEs for the first partition and telemetry query.
 Prerequisites are Go 1.26+, Node 22 for the UI, FUSE 3 for mounting, Docker for
 image builds, OpenSSL for generated secrets, and `kubectl` plus `kind` for the
 local bootstrap.
+
+For production deployments, see [docs/hardening.md](docs/hardening.md) for
+auth, TLS/mTLS, SSRF, PII tokenization, and audit configuration.
 
 ## Status
 

@@ -49,19 +49,17 @@ email:    admin@example.com
   --password 'choose-a-password'
 ```
 
-Grant access in the same step:
+Create the user first, then add the matching subject to the access policy
+(`access/envs/<env>.yaml`) and publish it:
 
 ```bash
-./scripts/create-authentik-user.sh \
-  --username alice \
-  --email alice@example.com \
-  --password 'choose-a-password' \
-  --grant maintainer \
-  --partition onboarding-app
+guardianctl access lint    --file access/envs/dev.yaml
+guardianctl access publish --file access/envs/dev.yaml --env dev
 ```
 
-The email is what Guardian/MonoFS authorization grants match. The script can
-also add Authentik groups with `--groups`.
+The email is the subject the access policy matches. `--grant` on the user
+script prints the exact YAML entry to add. The script can also add Authentik
+groups with `--groups`.
 
 ### CLI access
 
@@ -121,18 +119,9 @@ issuer:        http://authentik.authentik.svc.cluster.local:9000/application/o/m
   --password 'choose-a-password'
 ```
 
-To grant partition access in the same step:
-
-```bash
-./scripts/create-authentik-user.sh \
-  --username alice \
-  --email alice@example.com \
-  --password 'choose-a-password' \
-  --grant maintainer \
-  --partition onboarding-app
-```
-
-The email is what Guardian/MonoFS authorization grants match. The script can
+Add the matching subject to `access/envs/<env>.yaml` and publish it with
+`guardianctl access publish` (or run the user script with `--grant` to print the
+YAML entry). The email is the subject the access policy matches. The script can
 also add Authentik groups with `--groups`.
 
 ### 3. Point Guardian at Authentik
@@ -145,7 +134,6 @@ kubectl -n strata set env deploy/guardiand \
   MONOFS_OIDC_CLIENT_SECRET=monofs-oidc-secret \
   MONOFS_OIDC_REDIRECT_URL=http://127.0.0.1:28090/auth/callback \
   MONOFS_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/ \
-  MONOFS_AUTHZ_ENFORCE_UI=false \
   GUARDIAN_REQUIRE_UI_AUTH=true
 
 kubectl -n strata rollout restart deploy/guardiand
@@ -156,7 +144,7 @@ Open <http://127.0.0.1:28090/auth/login> to sign in; Authentik returns to
 Guardian with a session cookie. The read-only Guardian UI stays reachable
 without a session by default so the `/health` probe keeps passing. UI mutations
 require a login because `GUARDIAN_REQUIRE_UI_AUTH=true`. To also gate browser
-reads, set `MONOFS_AUTHZ_ENFORCE_UI=true` and add `/health` to Guardian's auth
+reads, set `GUARDIAN_REQUIRE_UI_AUTH=true` and add `/health` to Guardian's auth
 exemptions (or change the probe path).
 
 ### 4. Point MonoFS at Authentik
@@ -175,7 +163,6 @@ kubectl -n strata set env deploy/monofs-router \
   MONOFS_OIDC_CLIENT_SECRET=monofs-oidc-secret \
   MONOFS_ROUTER_OIDC_REDIRECT_URL=http://127.0.0.1:28081/auth/callback \
   MONOFS_ROUTER_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/ \
-  MONOFS_AUTHZ_ENFORCE_UI=true
 
 kubectl -n strata rollout restart deploy/monofs-router
 kubectl -n strata rollout status deploy/monofs-router --timeout=120s
@@ -265,10 +252,11 @@ aws cognito-idp admin-set-user-password \
   --permanent
 ```
 
-To grant the new user access, add the matching subject to the grants in
-`lib/strata-stack.ts` (`demoGrants`) and redeploy, or publish a repo-managed
-Guardian access policy. The default grants include
-`admin@example.com` on all partitions and the two demo division users.
+To grant the new user access, add the matching subject to the repo-managed
+access policy (`access/envs/<env>.yaml`) and publish it. The policy is the
+single runtime authorization source for Guardian, MonoFS, and Doctor. The
+default policy includes `admin@example.com` as a global admin and the demo
+division users as scoped viewers.
 
 ---
 
@@ -307,7 +295,7 @@ Guardian/MonoFS workloads.
 | Symptom | Check |
 |---|---|
 | Authentik login page does not load | Check `kubectl -n authentik get pods` and the `29020` port-forward |
-| Login succeeds but Guardian/Doctor shows anonymous | Confirm `admin@example.com` or the user email has a grant; restart the auth script |
+| Login succeeds but Guardian/Doctor shows anonymous | Confirm the user email has a grant in the published access policy |
 | 401 on a Guardian mutation | Sign in through `/auth/login`, or call the API with a bearer token |
-| OIDC login redirects but returns 403 | The user is authenticated but has no Guardian/Doctor grant |
+| OIDC login redirects but returns 403 | The user is authenticated but the access policy grants no matching scope/role |
 | Cognito user cannot sign in | Run `admin-set-user-password --permanent`; self-signup is disabled |
