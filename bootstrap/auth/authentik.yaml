@@ -86,6 +86,10 @@ data:
               url: "http://127.0.0.1:28080/auth/callback"
             - matching_mode: strict
               url: "http://127.0.0.1:28081/auth/callback"
+            - matching_mode: strict
+              url: "http://localhost:3000/api/auth/callback"
+            - matching_mode: strict
+              url: "http://127.0.0.1:3000/api/auth/callback"
           property_mappings:
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, openid]]
             - !Find [authentik_providers_oauth2.scopemapping, [scope_name, email]]

@@ -1,0 +1,324 @@
+---
+# Strata Agent (assistance plane): FastAPI backend, React frontend, Nightwatch.
+#
+# The local stack runs the LLM on the host through Ollama's OpenAI-compatible
+# endpoint. Override STRATA_LLM_BASE_URL / STRATA_LLM_MODEL before running the
+# bootstrap to point at a different server; the agent starts even when the LLM
+# is unreachable, but chat turns will fail until it is available.
+apiVersion: v1
+kind: Service
+metadata:
+  name: lagent-backend
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: lagent-backend }
+  ports:
+    - { name: http, port: 8090, targetPort: http }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lagent-nightwatch
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: lagent-nightwatch }
+  ports:
+    - { name: http, port: 8091, targetPort: http }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lagent-frontend
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: lagent-frontend }
+  ports:
+    - { name: http, port: 3000, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lagent-backend
+  namespace: __NAMESPACE__
+  labels: { app: lagent-backend }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: lagent-backend }
+  template:
+    metadata:
+      labels: { app: lagent-backend }
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: __IMAGE_PREFIX__/lagent-backend:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LLM_MODE
+              value: local
+            - name: LLM_BASE_URL
+              value: __LLM_BASE_URL__
+            - name: LLM_MODEL
+              value: __LLM_MODEL__
+            - name: LLM_API_KEY
+              value: ollama
+            # Ollama does not accept llama.cpp GBNF grammars.
+            - name: LLM_GRAMMAR_ENABLED
+              value: "false"
+            - name: LLM_HYBRID_ENABLED
+              value: "false"
+            - name: STEVE_ENGINE
+              value: local
+            - name: AGENT_FLOW_ENABLED
+              value: "true"
+            - name: AUTO_SWITCH_ENABLED
+              value: "true"
+            - name: AUTO_PUSH_ENABLED
+              value: "false"
+            - name: DATABASE_URL
+              value: sqlite+aiosqlite:////data/lagent.db
+            - name: GUARDIAN_URL
+              value: http://guardiand.__NAMESPACE__.svc.cluster.local:8090
+            - name: DOCTOR_QUERY_URL
+              value: http://doctor-query.__NAMESPACE__.svc.cluster.local:18080
+            - name: LB_EDGE_REGISTRY_URL
+              value: http://lb-edge.__NAMESPACE__.svc.cluster.local:18081
+            - name: NIGHTWATCH_URL
+              value: http://lagent-nightwatch.__NAMESPACE__.svc.cluster.local:8091
+            - name: NIGHTWATCH_PROXY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: NIGHTWATCH_PROXY_TOKEN }
+            - name: MONOFS_ROUTER
+              value: monofs-router.__NAMESPACE__.svc.cluster.local:9090
+            - name: MONOFS_HEADLESS
+              value: "true"
+            - name: MONOFS_MOUNT
+              value: /workspace
+            - name: MONOFS_OVERLAY
+              value: /data/monofs-overlay
+            - name: MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: AGENT_AUTH_REQUIRED
+              value: "true"
+            - name: AGENT_API_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: AGENT_API_TOKEN }
+            - name: AGENT_SESSION_SECRET
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: AGENT_SESSION_SECRET }
+            - name: AGENT_OIDC_ISSUER
+              value: http://authentik.authentik.svc.cluster.local:9000/application/o/monofs/
+            - name: AGENT_OIDC_TOKEN_URL
+              value: http://authentik.authentik.svc.cluster.local:9000/application/o/token/
+            - name: AGENT_OIDC_AUTHORIZATION_URL
+              value: http://127.0.0.1:29020/application/o/authorize/
+            - name: AGENT_OIDC_DEVICE_AUTHORIZATION_URL
+              value: http://authentik.authentik.svc.cluster.local:9000/application/o/device/
+            - name: AGENT_OIDC_REDIRECT_URL
+              value: http://localhost:3000/api/auth/callback
+            - name: AGENT_OIDC_CLIENT_ID
+              value: monofs
+            - name: AGENT_OIDC_CLIENT_SECRET
+              value: monofs-oidc-secret
+            - name: AGENT_OIDC_AUDIENCE
+              value: monofs
+            - name: AGENT_OIDC_SCOPE
+              value: openid email profile offline_access
+            - name: AGENT_OIDC_PUBLIC_BASE_URL
+              value: http://127.0.0.1:29020
+            - name: OTEL_ENABLED
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://doctor-ingest.__NAMESPACE__.svc.cluster.local:4317
+            - name: DOCTOR_INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: authorization=Bearer%20$(DOCTOR_INGEST_AUTH_TOKEN)
+            - name: OTEL_SERVICE_NAME
+              value: agent.lagent-backend
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: guardian.partition=agent,guardian.intent=agent,guardian.asset=lagent-backend,guardian.asset.type=Compute,guardian.identity.kind=managed
+            - name: AWS_EC2_METADATA_DISABLED
+              value: "true"
+          ports:
+            - { name: http, containerPort: 8090 }
+          readinessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 250m, memory: 512Mi }
+            limits: { cpu: "2", memory: 2Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lagent-nightwatch
+  namespace: __NAMESPACE__
+  labels: { app: lagent-nightwatch }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: lagent-nightwatch }
+  template:
+    metadata:
+      labels: { app: lagent-nightwatch }
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+        - name: nightwatch
+          image: __IMAGE_PREFIX__/lagent-backend:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          command:
+            - python
+            - -m
+            - app.server
+            - --app
+            - app.nightwatch.main:app
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8091"
+          env:
+            - name: LLM_MODE
+              value: local
+            - name: LLM_BASE_URL
+              value: __LLM_BASE_URL__
+            - name: LLM_MODEL
+              value: __LLM_MODEL__
+            - name: LLM_API_KEY
+              value: ollama
+            - name: LLM_GRAMMAR_ENABLED
+              value: "false"
+            - name: DATABASE_URL
+              value: sqlite+aiosqlite:////data/lagent.db
+            - name: GUARDIAN_URL
+              value: http://guardiand.__NAMESPACE__.svc.cluster.local:8090
+            - name: DOCTOR_QUERY_URL
+              value: http://doctor-query.__NAMESPACE__.svc.cluster.local:18080
+            - name: MONOFS_ROUTER
+              value: monofs-router.__NAMESPACE__.svc.cluster.local:9090
+            - name: MONOFS_HEADLESS
+              value: "true"
+            - name: MONOFS_OVERLAY
+              value: /data/monofs-overlay
+            - name: MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: NIGHTWATCH_ENABLED
+              value: "true"
+            - name: NIGHTWATCH_MODE
+              value: shadow
+            - name: NIGHTWATCH_PROXY_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: NIGHTWATCH_PROXY_TOKEN }
+            - name: NIGHTWATCH_DB_URL
+              value: sqlite+aiosqlite:////data/nightwatch.db
+            - name: NIGHTWATCH_SENTINEL_URL
+              value: http://doctor-sentinel.__NAMESPACE__.svc.cluster.local:18082
+            - name: NIGHTWATCH_TENANT
+              value: default
+            - name: NIGHTWATCH_LLM_ENABLED
+              value: "true"
+            - name: AGENT_AUTH_REQUIRED
+              value: "false"
+            - name: AGENT_OIDC_ISSUER
+              value: http://authentik.authentik.svc.cluster.local:9000/application/o/monofs/
+            - name: AGENT_OIDC_TOKEN_URL
+              value: http://authentik.authentik.svc.cluster.local:9000/application/o/token/
+            - name: AGENT_OIDC_CLIENT_ID
+              value: monofs
+            - name: AGENT_OIDC_CLIENT_SECRET
+              value: monofs-oidc-secret
+            - name: AGENT_OIDC_AUDIENCE
+              value: monofs
+            - name: OTEL_ENABLED
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://doctor-ingest.__NAMESPACE__.svc.cluster.local:4317
+            - name: DOCTOR_INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: authorization=Bearer%20$(DOCTOR_INGEST_AUTH_TOKEN)
+            - name: OTEL_SERVICE_NAME
+              value: agent.lagent-nightwatch
+          ports:
+            - { name: http, containerPort: 8091 }
+          readinessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 200m, memory: 384Mi }
+            limits: { cpu: "1", memory: 1Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          emptyDir: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lagent-frontend
+  namespace: __NAMESPACE__
+  labels: { app: lagent-frontend }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: lagent-frontend }
+  template:
+    metadata:
+      labels: { app: lagent-frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: __IMAGE_PREFIX__/lagent-frontend:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LAGENT_BACKEND_HOST
+              value: lagent-backend
+          ports:
+            - { name: http, containerPort: 3000 }
+          readinessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }

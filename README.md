@@ -78,7 +78,10 @@ flowchart TB
 ## Bootstrap
 
 Prerequisites: Docker with BuildKit, `kind`, `kubectl`, `curl`, Go 1.26+, and
-OpenSSL. Node 22 is only needed if you rebuild the Guardian UI.
+OpenSSL. Node 22 is only needed if you rebuild the Guardian UI. The Agent uses
+a local Ollama model by default (`gemma4:e4b`, or the first model you override
+with `STRATA_LLM_MODEL`); any OpenAI-compatible endpoint works through
+`STRATA_LLM_BASE_URL`.
 
 All paths below start from the public `strata` checkout. `scripts/clone.sh` is
 idempotent, and `dev-kind-up.sh` calls it automatically if the sibling
@@ -92,9 +95,10 @@ cd strata
 ./scripts/bootstrap.sh up
 ```
 
-Equivalent to `./scripts/dev-kind-up.sh`. It builds MonoFS, Guardian, Doctor,
-and the MonoFS fetcher from the public checkouts, starts them in a local kind
-cluster, deploys Authentik for SSO, imports the platform partitions from the
+Equivalent to `./scripts/dev-kind-up.sh`. It builds MonoFS (router, server,
+fetcher, logquery, search), Guardian, Doctor (ingest, query, sentinel), LB Edge,
+the Agent, and the sample application from the public checkouts, starts them in
+a local kind cluster, deploys Authentik for SSO, ingests and indexes the
 `monofs`, `guardian`, and `doctor` repositories, and onboards the example
 application partition.
 
@@ -103,8 +107,11 @@ application partition.
 | <http://127.0.0.1:28090> | Guardian UI (Authentik login) |
 | <http://127.0.0.1:28080> | Doctor UI (Authentik login) |
 | <http://127.0.0.1:28081> | MonoFS UI (Authentik login) |
+| <http://localhost:3000> | Agent UI |
 | <http://127.0.0.1:29020> | Authentik |
 | <http://127.0.0.1:18088> | Example application |
+| <http://127.0.0.1:28088> | Example application through LB Edge |
+| <http://127.0.0.1:18081> | LB Edge registry (`/services`) |
 
 Guardian, Doctor, and MonoFS all authenticate through Authentik and redirect
 anonymous browsers to its login page. The development Authentik admin is

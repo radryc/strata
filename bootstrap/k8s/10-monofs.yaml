@@ -159,6 +159,8 @@ spec:
             - --port=9090
             - --http-port=8080
             - --router-name=router-a
+            - --search-addr=monofs-search.__NAMESPACE__.svc.cluster.local:9100
+            - --search-diagnostics-addr=monofs-search.__NAMESPACE__.svc.cluster.local:9101
             - --cluster-id=strata-dev
             - --nodes=node-a=monofs-server:9000
             - --weights=node-a=100
