@@ -126,6 +126,72 @@ repository, see [onboarding-application.md](onboarding-application.md).
 
 The repository's `.gitignore` excludes `.strata/`.
 
+## Access the deployed application
+
+The bootstrap deploys the sample application through Guardian, not as a static
+manifest. It lands in the `onboarding-app` namespace with generated resource
+names (`k8s-compute-...`, `k8s-svc-...`).
+
+### Browser
+
+The bootstrap starts a port-forward for the deployed service:
+
+```
+http://127.0.0.1:18088
+```
+
+There is no ingress. If the app pod is replaced the port-forward dies; restart
+it against the current service:
+
+```bash
+SVC="$(kubectl -n onboarding-app get svc -l guardian.asset=app -o jsonpath='{.items[0].metadata.name}')"
+kubectl -n onboarding-app port-forward "svc/$SVC" 18088:8080
+```
+
+### Guardian UI
+
+Open <http://127.0.0.1:28090> and sign in through Authentik
+(`akadmin` / `password`). The `onboarding-app` partition lists the `app` intent
+and its Compute/Probe assets, drift state, and health.
+
+### Guardian CLI
+
+`guardianctl` is built into `.strata/bin/guardianctl` during bootstrap. For the
+local stack, use the MonoFS router and token from `.strata/dev.env`:
+
+```bash
+cd strata
+set -a; . .strata/dev.env; set +a
+export GUARDIAN_MONOFS_ALLOW_PLAINTEXT=true
+
+.strata/bin/guardianctl --monofs-router 127.0.0.1:19090 \
+  --monofs-token "$MONOFS_TOKEN" partition list
+
+.strata/bin/guardianctl --monofs-router 127.0.0.1:19090 \
+  --monofs-token "$MONOFS_TOKEN" partition status --partition onboarding-app
+
+.strata/bin/guardianctl --monofs-router 127.0.0.1:19090 \
+  --monofs-token "$MONOFS_TOKEN" intent status \
+  --partition onboarding-app --intent app
+```
+
+To use the HTTP API with an SSO session instead:
+
+```bash
+.strata/bin/guardianctl auth login \
+  --issuer http://127.0.0.1:29020/application/o/monofs/ \
+  --client-id monofs --client-secret monofs-oidc-secret
+.strata/bin/guardianctl --guardian-url http://127.0.0.1:18090 partition list
+```
+
+### Kubernetes
+
+```bash
+kubectl -n onboarding-app get deploy,svc,pod
+kubectl -n onboarding-app logs deploy/<deployment-name> -f
+kubectl -n onboarding-app exec deploy/<deployment-name> -- wget -qO- localhost:8080/healthz
+```
+
 ## Troubleshooting
 
 - **Pod CrashLoopBackOff:** `kubectl -n strata describe pod <pod>` and
