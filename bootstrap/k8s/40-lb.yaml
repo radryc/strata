@@ -1,0 +1,149 @@
+---
+# LB Edge: all-in-one registry + TCP proxy data plane.
+#
+# The registry is intentionally unauthenticated in the local developer stack so
+# the Kubernetes endpoints agent and the Agent's read-only `lb_edge_services`
+# tool can talk to it without distributing another token. Enable
+# LB_REGISTRY_TOKEN for anything beyond an isolated kind cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lb-edge
+  namespace: __NAMESPACE__
+  labels: { app: lb-edge }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: lb-edge }
+  template:
+    metadata:
+      labels: { app: lb-edge }
+    spec:
+      containers:
+        - name: edge
+          image: __IMAGE_PREFIX__/lb-edge:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LB_BIND_ADDRESS
+              value: 0.0.0.0
+            - name: LB_REGISTRY_HTTP_ADDR
+              value: 0.0.0.0:18081
+            - name: LB_REGISTRY_GRPC_ADDR
+              value: 0.0.0.0:15051
+            - name: LB_METRICS_ADDR
+              value: :19090
+            - name: LB_SYNC_EVERY
+              value: 2s
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://doctor-ingest.__NAMESPACE__.svc.cluster.local:4317
+            - name: DOCTOR_INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: authorization=Bearer%20$(DOCTOR_INGEST_AUTH_TOKEN)
+            - name: OTEL_SERVICE_NAME
+              value: lb.edge
+          ports:
+            - { name: registry-http, containerPort: 18081 }
+            - { name: registry-grpc, containerPort: 15051 }
+            - { name: metrics, containerPort: 19090 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: registry-http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: registry-http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lb-edge
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: lb-edge }
+  ports:
+    - { name: registry-http, port: 18081, targetPort: registry-http }
+    - { name: registry-grpc, port: 15051, targetPort: registry-grpc }
+    - { name: metrics, port: 19090, targetPort: metrics }
+    # Demo route opened by the endpoints agent; the proxy listener itself is
+    # created dynamically, so expose the port here for `kubectl port-forward`.
+    - { name: onboarding-app, port: 28088, targetPort: 28088 }
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lb-k8s-agent
+  namespace: __NAMESPACE__
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: strata-lb-k8s-agent
+rules:
+  - apiGroups: [""]
+    resources: ["endpoints", "services", "namespaces", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: strata-lb-k8s-agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: strata-lb-k8s-agent
+subjects:
+  - kind: ServiceAccount
+    name: lb-k8s-agent
+    namespace: __NAMESPACE__
+---
+# Watches Endpoints/Services annotated with guardian.intent/expose="true" and
+# registers their backends with the local LB Edge registry.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lb-k8s-agent
+  namespace: __NAMESPACE__
+  labels: { app: lb-k8s-agent }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: lb-k8s-agent }
+  template:
+    metadata:
+      labels: { app: lb-k8s-agent }
+    spec:
+      serviceAccountName: lb-k8s-agent
+      containers:
+        - name: k8s-agent
+          image: __IMAGE_PREFIX__/lb-edge:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          command: ["/usr/local/bin/lb-k8s-agent"]
+          args:
+            - --registry-addr=lb-edge.__NAMESPACE__.svc.cluster.local:15051
+          env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: http://doctor-ingest.__NAMESPACE__.svc.cluster.local:4317
+            - name: DOCTOR_INGEST_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
+            - name: OTEL_EXPORTER_OTLP_INSECURE
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: grpc
+            - name: OTEL_EXPORTER_OTLP_HEADERS
+              value: authorization=Bearer%20$(DOCTOR_INGEST_AUTH_TOKEN)
+            - name: OTEL_SERVICE_NAME
+              value: lb.k8s-agent
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }

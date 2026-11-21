@@ -1,7 +1,8 @@
 # Local developer stack on kind
 
-This is the fastest path from a fresh clone to a running Strata control plane
-with Guardian, MonoFS, Doctor, and a sample application.
+This is the fastest path from a fresh clone to a running Strata platform:
+Guardian, MonoFS (including code search), Doctor (ingest, query, and sentinel),
+LB Edge, the Agent, and a sample application.
 
 ## Prerequisites
 
@@ -12,6 +13,9 @@ with Guardian, MonoFS, Doctor, and a sample application.
 - Go 1.26+
 - OpenSSL
 - Node 22 only if you build the Guardian UI from source
+- Ollama for the Agent's local model (default `gemma4:e4b`). Any
+  OpenAI-compatible server works: set `STRATA_LLM_BASE_URL` and
+  `STRATA_LLM_MODEL` before running the bootstrap.
 - Network access to GitHub for the first MonoFS ingestion of the platform
   repositories
 
@@ -28,18 +32,23 @@ From the `strata` repository:
 The script:
 
 1. creates a `strata-dev` kind cluster;
-2. builds MonoFS (router, server, fetcher), Guardian, Doctor, and the example
-   application images from the local checkouts;
+2. builds every Strata image from the sibling checkouts: MonoFS (router,
+   server, fetcher, logquery, search), Guardian, Doctor (ingest, query,
+   sentinel), LB Edge (edge, proxy, k8s-agent), the Agent (backend and
+   frontend), and the example application;
 3. loads the images into kind;
-4. generates local-only MonoFS and Doctor secrets in `.strata/dev.env`;
-5. starts the control plane in the `strata` namespace;
+4. generates local-only MonoFS, Doctor, Guardian, and Agent secrets in
+   `.strata/dev.env`;
+5. starts the control plane in the `strata` namespace, including MonoFS
+   search, Doctor sentinel, LB Edge, and the Agent;
 6. deploys Authentik and enables OIDC login;
-7. ingests the public `monofs`, `guardian`, and `doctor` repositories into
-   MonoFS and registers them with Guardian;
+7. ingests and indexes the public `monofs`, `guardian`, and `doctor`
+   repositories into MonoFS and registers them with Guardian;
 8. imports each repository's `guardian/partitions/<name>` bundle, which adds
    observed platform partitions and probes for MonoFS, Guardian, and Doctor;
 9. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
-10. starts port-forwards.
+10. annotates the deployed app service so the LB Edge endpoints agent opens
+    external port `28088`, and starts port-forwards.
 
 When it finishes:
 
@@ -48,8 +57,11 @@ When it finishes:
 | <http://127.0.0.1:28090> | Guardian UI (Authentik login) |
 | <http://127.0.0.1:28080> | Doctor UI (Authentik login) |
 | <http://127.0.0.1:28081> | MonoFS UI (Authentik login) |
+| <http://localhost:3000> | Agent UI |
 | <http://127.0.0.1:29020> | Authentik |
-| <http://127.0.0.1:18088> | Sample application |
+| <http://127.0.0.1:18088> | Sample application (direct) |
+| <http://127.0.0.1:28088> | Sample application through LB Edge |
+| <http://127.0.0.1:18081> | LB Edge registry snapshot (`/services`) |
 
 Guardian, Doctor, and MonoFS all authenticate through Authentik and redirect
 anonymous browsers to its login page. The development Authentik admin is
@@ -65,9 +77,16 @@ Create another user and set their password:
   --grant maintainer --partition onboarding-app
 ```
 
-The direct endpoints `18090` (Guardian API), `19090` (MonoFS gRPC), and `9000`
-(MonoFS node) are for `guardianctl` and local debugging. Do not expose them
-outside your machine.
+The direct endpoints `18090` (Guardian API), `19090` (MonoFS gRPC), `9000`
+(MonoFS node), `18081` (LB Edge registry), `15051` (LB Edge gRPC), and `8090`
+(Agent backend) are for `guardianctl`, the Agent, and local debugging. Do not
+expose them outside your machine.
+
+Generated secrets in `.strata/dev.env` include `MONOFS_TOKEN`,
+`DOCTOR_INGEST_AUTH_TOKEN`, `DOCTOR_PRIVACY_HMAC_KEY`, `AGENT_API_TOKEN`,
+`AGENT_SESSION_SECRET`, and `NIGHTWATCH_PROXY_TOKEN`. Local development opts out
+of TLS between Strata services and opts into unkeyed deployment archives; both
+are explicit environment settings in the manifests, not silent defaults.
 
 ## Platform partitions
 
@@ -275,18 +294,163 @@ the router's `--external-addrs` to a forwarded address (for example
 `node-a=127.0.0.1:9000`) and using `--use-external-addrs`. Without that, use the
 UI or run the client inside the cluster.
 
+### Code search
+
+The bootstrap deploys `monofs-search` (Zoekt) and points the router at it, so
+the MonoFS UI `/search` panel and the router's search APIs work. Re-ingesting a
+repository queues a fresh index automatically:
+
+```bash
+# Re-ingest one repo (also refreshes its search index)
+.strata/bin/monofs-admin ingest \
+  --router 127.0.0.1:19090 \
+  --source https://github.com/radryc/guardian \
+  --ingestion-type git --fetch-type blob --replicate-data=true \
+  --token "$MONOFS_TOKEN"
+```
+
+Inspect and rebuild indexes through the router API (the token authenticates as
+a break-glass principal):
+
+```bash
+curl -s -H "Authorization: Bearer $MONOFS_TOKEN" \
+  http://127.0.0.1:28081/api/search/indexes
+
+curl -s -X POST -H "Authorization: Bearer $MONOFS_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"all":true,"force":true}' \
+  http://127.0.0.1:28081/api/search/rebuild
+```
+
+Search results carry file paths and line matches; the Agent's MonoFS tools use
+the same service.
+
+## Access LB Edge
+
+LB Edge is the traffic plane: an in-cluster registry plus a TCP proxy. The
+bootstrap deploys the all-in-one `lb-edge` binary and the Kubernetes endpoints
+agent (`lb-k8s-agent`).
+
+- Registry HTTP snapshot: <http://127.0.0.1:18081/services>
+- Registry health: <http://127.0.0.1:18081/healthz>
+- gRPC registry: `127.0.0.1:15051` (through a port-forward if needed)
+- Metrics: `127.0.0.1:19090`
+
+The endpoints agent watches Services annotated with
+`guardian.intent/expose="true"`. The bootstrap annotates the generated sample
+app Service and registers `external-port=28088`, so
+<http://127.0.0.1:28088> proxies through LB Edge to the app pod. To expose
+another Service, add the same annotations:
+
+```bash
+kubectl -n <namespace> annotate svc <name> \
+  guardian.intent/expose=true \
+  guardian.intent/external-port=28088 \
+  --overwrite
+```
+
+Inspect the live routes and backends:
+
+```bash
+curl -s http://127.0.0.1:18081/services | jq .
+kubectl -n strata logs deploy/lb-k8s-agent -f
+kubectl -n strata logs deploy/lb-edge -f
+```
+
+The local edge registry is intentionally unauthenticated so the endpoints agent
+and the Agent's read-only `lb_edge_services` tool can use it without another
+token. Set `LB_REGISTRY_TOKEN` for anything beyond an isolated kind cluster.
+
+## Access the Agent
+
+The Agent (assistance plane) runs as three workloads in the `strata` namespace:
+
+| Component | Purpose |
+|---|---|
+| `lagent-frontend` | React UI, nginx on port `3000` |
+| `lagent-backend` | FastAPI chat, tools, sessions, MonoFS workspace |
+| `lagent-nightwatch` | Shadow-mode alert investigator |
+
+Open **<http://localhost:3000>**. The backend authenticates through Authentik
+with the same `monofs` OIDC client; the bootstrap registers
+`http://localhost:3000/api/auth/callback` as a redirect URI. If you prefer a
+static API token for automation, read `AGENT_API_TOKEN` from
+`.strata/dev.env`:
+
+```bash
+set -a; . .strata/dev.env; set +a
+curl -s -X POST http://localhost:3000/api/chat \
+  -H "Authorization: Bearer $AGENT_API_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"message":"List the LB Edge services and their external ports."}'
+```
+
+The model comes from the host through Ollama's OpenAI-compatible API:
+
+```bash
+# Host prerequisites
+ollama pull gemma4:e4b
+OLLAMA_HOST=0.0.0.0:11434 ollama serve
+
+# Defaults used by the bootstrap
+STRATA_LLM_BASE_URL="http://<kind-bridge-gateway>:11434"
+STRATA_LLM_MODEL="gemma4:e4b"
+```
+
+Override both to use a hosted OpenAI-compatible endpoint or another local model.
+The backend reports the active model on `/api/agent/status`. The Agent reaches
+Guardian, Doctor, MonoFS, and LB Edge over in-cluster service DNS and obtains
+service tokens with OIDC client credentials; no extra service tokens are
+required. Nightwatch reads Sentinel alerts and records findings in shadow mode.
+
+## Access Doctor sentinel
+
+`doctor-sentinel` is deployed with the Doctor stack and backs the UI alert
+views. It has no browser UI of its own; health and readiness are available
+in-cluster on `doctor-sentinel:18082/healthz` and `/ready`, and the Agent's
+Nightwatch worker reads alerts from it. Local development runs it with
+`DOCTOR_SENTINEL_AUTH_ALLOW_ALL=true` and delivery disabled because no
+notification receivers are configured.
+
 ## Troubleshooting
 
 - **Pod CrashLoopBackOff:** `kubectl -n strata describe pod <pod>` and
   `kubectl -n strata logs <pod> --previous`.
 - **Guardian has no task:** confirm the `k8s-main` pusher pod is running and
   that `guardianctl --guardian-url http://127.0.0.1:18090 pusher list` shows it.
+- **Rollouts panel is empty:** deployment archives need either
+  `GUARDIAN_ARCHIVE_HMAC_KEY` or the local-dev
+  `GUARDIAN_ALLOW_UNKEYED_ARCHIVE=true`. The bootstrap exports it for
+  `guardianctl` and sets it on `guardiand`. If a partition was applied before
+  that was enabled, force one reconcile:
+  `.strata/bin/guardianctl ... partition push --dir ... --force` or
+  `.strata/bin/guardianctl ... partition reconcile --partition <name>`.
+- **MonoFS search says "Search service not configured":** check
+  `kubectl -n strata get deploy monofs-search`, then confirm the router args
+  contain `--search-addr=monofs-search...:9100`. Existing repositories need an
+  index; re-ingest them or use `/api/search/rebuild` after an index exists.
+- **Agent chat fails or times out:** check Ollama on the host:
+  `curl http://127.0.0.1:11434/api/tags`. The default model is `gemma4:e4b`;
+  models with missing blobs fail to load. Override `STRATA_LLM_MODEL` or
+  `STRATA_LLM_BASE_URL` and rerun the bootstrap. Inspect
+  `kubectl -n strata logs deploy/lagent-backend`.
+- **Agent UI shows 401/SSO errors:** confirm Authentik has the
+  `http://localhost:3000/api/auth/callback` redirect URI (the bootstrap applies
+  it) and that `lagent-backend` has the `AGENT_OIDC_*` variables.
+- **LB Edge route missing:** confirm the Service has
+  `guardian.intent/expose=true` and `guardian.intent/external-port`, then restart
+  `lb-k8s-agent` so it reconciles existing endpoints:
+  `kubectl -n strata rollout restart deploy/lb-k8s-agent`.
 - **App image pull error:** the kind stack uses `imagePullPolicy: IfNotPresent`
   and loads the sample image with `kind load docker-image`. For your own image,
   either load it into kind or push it to a registry the cluster can reach.
 - **Port already in use:** stop the conflicting process or edit the
   port-forward ports in `scripts/dev-kind-up.sh` (the sample app port lives in
   `scripts/lib/bootstrap-common.sh`).
+- **A port-forward died after a rollout:** they pin a pod, not a Service.
+  Restart the affected one, for example
+  `kubectl -n strata port-forward svc/monofs-router 19090:9090` or
+  `kubectl -n strata port-forward svc/lb-edge 28088:28088`.
 - **Authentik login fails:** check `kubectl -n authentik get pods` and
   `kubectl -n authentik logs deploy/authentik-server`.
 
