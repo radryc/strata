@@ -13,6 +13,10 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck source=lib/bootstrap-common.sh
 source "$ROOT/scripts/lib/bootstrap-common.sh"
 
+# The kind dev stack runs MonoFS without TLS. Guardian and its CLI fail closed
+# on plaintext unless the local-development escape hatch is set explicitly.
+export GUARDIAN_MONOFS_ALLOW_PLAINTEXT=true
+
 SKIP_BUILD=false
 NO_PORT_FORWARD=false
 RESET=false
@@ -53,10 +57,15 @@ kubectl config use-context "kind-$STRATA_KIND_CLUSTER" >/dev/null
 
 if ! $SKIP_BUILD; then
   log "building MonoFS images"
-  docker build --target router -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
-  docker build --target server -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
-  docker build --target fetcher -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
-  docker build -f "$ROOT/../monofs/Dockerfile.logquery" -t "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  # The monofs Dockerfile pins github.com/radryc/kvs. Its default pin
+  # (e0e1989) enforces bearer auth on every RPC on the shared gRPC server,
+  # which breaks router->node health probes. Pin the fix that scopes bearer
+  # enforcement to KVStore RPCs until monofs bumps its default.
+  local kvs_ref="a33057cf2ba3c1055eda8fe44a9b5d771c7e857f"
+  docker build --target router --build-arg "KVS_REF=$kvs_ref" -t "$STRATA_IMAGE_PREFIX/monofs-router:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  docker build --target server --build-arg "KVS_REF=$kvs_ref" -t "$STRATA_IMAGE_PREFIX/monofs-server:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  docker build --target fetcher --build-arg "KVS_REF=$kvs_ref" -t "$STRATA_IMAGE_PREFIX/monofs-fetcher:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
+  docker build -f "$ROOT/../monofs/Dockerfile.logquery" --build-arg "KVS_REF=$kvs_ref" -t "$STRATA_IMAGE_PREFIX/monofs-logquery:$STRATA_IMAGE_TAG" "$ROOT/../monofs"
 
   log "building Guardian images"
   DOCKER_BUILDKIT=1 docker build \
