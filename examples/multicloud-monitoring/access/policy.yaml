@@ -1,0 +1,107 @@
+version: 1
+
+# Platform ACL for the self-contained multicloud example.
+#
+# The authored partitions (diva-shared, divb-shared) also carry an
+# access.yaml so the repository owns its partition-scoped grants. This file
+# remains the authority for users, clients, defaults, and cross-partition
+# bindings.
+defaults:
+  partitions: deny
+  logs: deny
+  traces: deny
+  sql: deny
+  monofs: deny
+
+users:
+  # Example platform admin. Deliberately not granted the division partitions:
+  # the platform admin manages monitoring without reading tenant logs/traces.
+  admin@example.com:
+    partitions:
+      - monitoring
+    logs:
+      - monitoring
+    traces:
+      - monitoring
+    monofs:
+      - ${MONOFS_REPO_PATTERN}
+    role: maintainer
+
+  # Division A: owns diva-shared (AWS + GCP + Kubernetes).
+  usera@example.com:
+    partitions:
+      - diva-shared
+    logs:
+      - diva-shared
+    traces:
+      - diva-shared
+    sql:
+      - diva-shared
+    backends:
+      - omni
+      - bigquery
+      - clickhouse
+      - monofs_local
+    monofs:
+      - ${MONOFS_REPO_PATTERN}
+    role: viewer
+
+  # Division B: owns divb-shared (AWS + GCP + Kubernetes).
+  userb@example.com:
+    partitions:
+      - divb-shared
+    logs:
+      - divb-shared
+    traces:
+      - divb-shared
+    sql:
+      - divb-shared
+    backends:
+      - omni
+      - bigquery
+      - clickhouse
+      - monofs_local
+    monofs:
+      - ${MONOFS_REPO_PATTERN}
+    role: viewer
+
+clients:
+  guardiand:
+    partitions: ["*"]
+    logs: ["*"]
+    traces: ["*"]
+    sql: ["*"]
+    monofs: ["*"]
+    role: admin
+
+  doctor:
+    partitions: ["*"]
+    logs: ["*"]
+    traces: ["*"]
+    sql: ["*"]
+    monofs: ["*"]
+    role: admin
+
+  break-glass-admin:
+    partitions: ["*"]
+    logs: ["*"]
+    traces: ["*"]
+    sql: ["*"]
+    monofs: ["*"]
+    role: admin
+
+  monofs:
+    partitions: ["*"]
+    logs: ["*"]
+    traces: ["*"]
+    sql: ["*"]
+    role: viewer
+
+# CloudWatch/X-Ray records are bound to the demo account, not the partition.
+aws_bindings:
+  - partition: diva-shared
+    account: "${AWS_ACCOUNT_A}"
+    region: ${AWS_REGION}
+  - partition: divb-shared
+    account: "${AWS_ACCOUNT_B}"
+    region: ${AWS_REGION}

@@ -11,10 +11,9 @@ The local stack uses the same Authentik OIDC flow as the Kubernetes example.
 The direct CLI endpoints remain available for `guardianctl` and local debugging.
 
 Guardian, Doctor, and MonoFS all expose `/auth/login`, which starts the
-Authentik browser flow. Doctor and MonoFS also redirect anonymous browser
-visits to it. Guardian keeps its read-only UI reachable without a session so
-the in-cluster `/health` probe and the local bootstrap keep working; UI
-mutations still require a login.
+Authentik browser flow, and all three redirect anonymous browser visits to it
+once OIDC is configured, so UI reads and mutations require a session. Bearer
+tokens keep working for CLI and API callers.
 
 ---
 
@@ -38,7 +37,9 @@ password: password
 email:    admin@example.com
 ```
 
-`admin@example.com` is granted admin on all partitions by the bootstrap.
+`admin@example.com` is granted admin across the platform partitions by the
+repo-managed access policy in `access/base.yaml`; publish that policy to enforce
+it.
 
 ### Create a user and set the password
 
@@ -84,6 +85,16 @@ The public reference deployment in
 [`bootstrap/auth/authentik.yaml`](../bootstrap/auth/authentik.yaml) provides a
 real OIDC provider for local or Kubernetes testing. It is a development
 deployment with fixed credentials; replace them before production.
+
+The redirect URLs below assume local port-forwards. Create them with:
+
+```bash
+kubectl -n strata port-forward svc/guardiand 28090:8090
+kubectl -n strata port-forward svc/monofs-router 28081:8080
+kubectl -n strata port-forward svc/doctor-query 28080:18080
+```
+
+With an ingress, use matching `https://.../auth/callback` URLs instead.
 
 ### 1. Deploy Authentik
 
@@ -141,11 +152,10 @@ kubectl -n strata rollout status deploy/guardiand --timeout=120s
 ```
 
 Open <http://127.0.0.1:28090/auth/login> to sign in; Authentik returns to
-Guardian with a session cookie. The read-only Guardian UI stays reachable
-without a session by default so the `/health` probe keeps passing. UI mutations
-require a login because `GUARDIAN_REQUIRE_UI_AUTH=true`. To also gate browser
-reads, set `GUARDIAN_REQUIRE_UI_AUTH=true` and add `/health` to Guardian's auth
-exemptions (or change the probe path).
+Guardian with a session cookie. Once OIDC browser login is configured, anonymous
+browser visits to Guardian are redirected to the login page and UI reads and
+mutations require a session. Keep `GUARDIAN_ALLOW_LOOPBACK_ANONYMOUS=false` (the
+default) so loopback requests get no extra mutation exemption.
 
 ### 4. Point MonoFS at Authentik
 
@@ -162,7 +172,7 @@ kubectl -n strata set env deploy/monofs-router \
   MONOFS_OIDC_CLIENT_ID=monofs \
   MONOFS_OIDC_CLIENT_SECRET=monofs-oidc-secret \
   MONOFS_ROUTER_OIDC_REDIRECT_URL=http://127.0.0.1:28081/auth/callback \
-  MONOFS_ROUTER_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/ \
+  MONOFS_ROUTER_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/
 
 kubectl -n strata rollout restart deploy/monofs-router
 kubectl -n strata rollout status deploy/monofs-router --timeout=120s
@@ -255,8 +265,8 @@ aws cognito-idp admin-set-user-password \
 To grant the new user access, add the matching subject to the repo-managed
 access policy (`access/envs/<env>.yaml`) and publish it. The policy is the
 single runtime authorization source for Guardian, MonoFS, and Doctor. The
-default policy includes `admin@example.com` as a global admin and the demo
-division users as scoped viewers.
+default policy grants `admin@example.com` admin across the platform partitions
+and scopes `userb@example.com` to the `customer-demo` partition as a viewer.
 
 ---
 

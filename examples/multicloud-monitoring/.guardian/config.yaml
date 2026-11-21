@@ -1,0 +1,25 @@
+apiVersion: guardian/v1alpha1
+kind: RepoConfig
+pusher:
+  name: aws-${AWS_ACCOUNT_A}
+  account: "${AWS_ACCOUNT_A}"
+  region: ${AWS_REGION}
+  description: AWS pusher used to observe the multicloud example CDK stacks
+repo:
+  name: multicloud-monitoring
+  source: ${REPO_SOURCE}
+  assemblySubdir: cdk.out
+  description: Multicloud (AWS + GCP + Kubernetes) example with monitoring
+  bindings:
+    - partition: diva-shared
+      selector: DivASharedStack
+      sourcePath: cdk
+      path: /partitions/diva-shared/payloads/aws
+      account: "${AWS_ACCOUNT_A}"
+      region: ${AWS_REGION}
+    - partition: divb-shared
+      selector: DivBSharedStack
+      sourcePath: cdk
+      path: /partitions/divb-shared/payloads/aws
+      account: "${AWS_ACCOUNT_B}"
+      region: ${AWS_REGION}

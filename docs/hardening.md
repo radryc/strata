@@ -9,10 +9,10 @@ controls below across each plane.
 ## 1. Authentication & Access Control
 
 ### MonoFS
-- Enforce gRPC and HTTP authorization with a compiled access policy (`access/envs/prod.yaml` → `access.yaml`):
-  - Set `--authz-enforce` / `MONOFS_ACCESS_POLICY_FILE` on `monofs-router` and `monofs-server`.
+- Enforce gRPC and HTTP authorization with a compiled access policy (`access/envs/prod.yaml` compiled to `access.yaml`):
+  - Set `--access-enforce` (or `MONOFS_ACCESS_ENFORCE=true`) and point `--access-policy-file` / `MONOFS_ACCESS_POLICY_FILE` at the compiled bundle on `monofs-router` and `monofs-server`.
   - OIDC tokens must carry a non-empty `sub` or `client_id` claim (`OIDCVerifier.Verify` rejects empty-identity tokens).
-  - Break-glass tokens (`NewBreakGlassVerifier`) use `ClientID: "break-glass-admin"` and are recognized by `AccessControl.isAdmin`.
+  - Break-glass tokens (`NewBreakGlassVerifier`) use `ClientID: "break-glass-admin"` and are recognized by `Policy.IsAdmin` in `pkg/authz/policy`.
 - Use distinct tokens for `--native-auth-token`, `--internal-token`, and break-glass access rather than reusing a single `MONOFS_TOKEN`.
 
 ### Guardian
@@ -51,9 +51,9 @@ controls below across each plane.
 
 ## 2. Transport Security (TLS / mTLS / Timeouts)
 
-- **Doctor ↔ MonoFS**: Set `DOCTOR_MONOFS_TLS_REQUIRE=true` along with `DOCTOR_MONOFS_TLS_CA_FILE` (and client cert/key for mTLS).
+- **Doctor ↔ MonoFS**: Set `DOCTOR_MONOFS_TLS_REQUIRE=true` along with `DOCTOR_MONOFS_TLS_CA` (and `DOCTOR_MONOFS_TLS_CERT` / `DOCTOR_MONOFS_TLS_KEY` for mTLS), or use the shared `STRATA_TLS_*` client settings.
 - **Doctor Sentinel**: Enable TLS with `DOCTOR_SENTINEL_TLS_CERT_FILE` and `DOCTOR_SENTINEL_TLS_KEY_FILE`.
-- **Guardian Pushers (`aws` & `gcp`)**: Always provide `--read-tls-cert` and `--read-tls-key` on non-loopback addresses (non-loopback plaintext HTTP is rejected even when a bearer token is configured, unless `--read-allow-plaintext` is explicitly passed).
+- **Guardian Pushers (`aws` & `gcp`)**: Always provide TLS certificate/key flags on non-loopback addresses (the `gcp` pusher uses `--read-tls-cert` / `--read-tls-key` / `--read-allow-plaintext`; the `aws` pusher uses `--awsread-tls-cert` / `--awsread-tls-key` / `--awsread-allow-plaintext`). Non-loopback plaintext HTTP is rejected even when a bearer token is configured, unless the matching allow-plaintext flag is explicitly passed.
 - **HTTP & Proxy Timeouts**:
   - `guardiand`, `doctor-sentinel`, and `lb` (`registry`/`edge`) enforce `ReadHeaderTimeout` (10s), `ReadTimeout` (30s), `WriteTimeout` (60s), and `IdleTimeout` (120s).
   - `lb` TCP proxy enforces a 5-minute idle read/write deadline and sanitizes `Host` headers in `/services`.
@@ -64,7 +64,7 @@ controls below across each plane.
 ## 3. SSRF, Privacy/PII, & Audit Logging
 
 - **SSRF Protection (`doctor` `netguard`)**:
-  - Keep `DOCTOR_BACKEND_ALLOW_PRIVATE=false` and `DOCTOR_SENTINEL_WEBHOOK_ALLOW_PRIVATE=false` with `DOCTOR_SENTINEL_WEBHOOK_REQUIRE_HTTPS=true` and `DOCTOR_SENTINEL_WEBHOOK_ALLOWED_HOSTS` set.
+  - Keep `DOCTOR_BACKEND_ALLOW_PRIVATE=false` and `DOCTOR_SENTINEL_WEBHOOK_ALLOW_PRIVATE=false` with `DOCTOR_SENTINEL_WEBHOOK_REQUIRE_HTTPS=true`; scope query backends with `DOCTOR_BACKEND_ALLOWED_HOSTS`.
   - When enabled without an explicit host allowlist, `netguard` resolves DNS hostnames and fails closed if any resolved IP is loopback, link-local/cloud-metadata (`169.254.0.0/16`), RFC1918, or non-`http`/`https`.
 - **PII & PCI Tokenization (`doctor` `privacy`)**:
   - Configure a high-entropy `DOCTOR_PRIVACY_HMAC_KEY`.
@@ -76,9 +76,9 @@ controls below across each plane.
 
 ## 4. Telemetry Encryption, Executor Isolation, & Container Builds
 
-- **Telemetry Encryption at Rest**: Enable `MONOFS_TELEMETRY_ENCRYPTION=enforce` with managed keys for log/trace chunks.
-- **Worker Executor Isolation**: `monofs-pipeline-worker` filters the host environment through an explicit safe allowlist (`PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`, `USER`, `SSL_CERT_FILE`, `SSL_CERT_DIR`) instead of leaking worker tokens to build subprocesses.
+- **Telemetry Encryption at Rest**: Set `MONOFS_TELEMETRY_ENCRYPTION=envelope` (write + read) with managed keys through `MONOFS_TELEMETRY_ENCRYPTION_KEYS_FILE` or `MONOFS_TELEMETRY_ENCRYPTION_KEYS_JSON`, and `MONOFS_TELEMETRY_ENCRYPTION_MODE=enforce` to reject plaintext log/trace chunks on read.
+- **Worker Executor Isolation**: `monofs-pipeline-worker` filters the host environment through an explicit safe allowlist (path/home/temp, locale, proxy, Go module cache, and TLS bundle variables) instead of leaking worker tokens to build subprocesses.
 - **Container & Supply-Chain Builds**:
   - `guardian/Dockerfile.pusher-gcp` requires a non-empty `TOFU_SHA256` build arg and fails the build if checksum verification is omitted.
   - `guardian/Dockerfile.pusher-aws` pins `aws-cdk@2`.
-  - Use immutable image digests rather than `:dev`/`:latest` tags in production Kubernetes manifests, and replace bootstrap `cluster-admin` bindings with namespace/resource-scoped Roles.
+  - Use immutable image digests rather than `:dev`/`:latest` tags in production Kubernetes manifests, and replace the bootstrap `strata-guardian-pusher` ClusterRole/ClusterRoleBinding with namespace/resource-scoped Roles.

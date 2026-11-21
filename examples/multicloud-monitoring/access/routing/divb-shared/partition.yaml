@@ -1,0 +1,63 @@
+# DivisionB / UserB: same three-provider shape as DivisionA, except the AWS
+# shard uses CloudWatch Logs Insights (OpenSearch SQL) instead of Omni.
+#
+#   AWS  -> CloudWatch Logs Insights (`logGroups(...)` source)
+#   GCP  -> BigQuery (Cloud Logging sink, fixed partition binding)
+#   k8s  -> MonoFS local Parquet (partition column)
+#
+# ${AWS_ACCOUNT_B}, ${AWS_REGION}, ${GCP_PROJECT}, ${ASSUME_ROLE}, and ${BQ_DATASET_DIVB}
+# are substituted by apply.sh before publish.
+name: divb-shared
+
+attributes:
+  division: DivisionB
+  department: DepartmentB
+  owner: userb
+
+shards:
+  - name: aws
+    signal: logs
+    platform: aws
+    account: "${AWS_ACCOUNT_B}"
+    region: "${AWS_REGION}"
+    attributes: {account: "${AWS_ACCOUNT_B}", region: "${AWS_REGION}", division: DivisionB}
+    placements:
+      - id: insights
+        backend: cloudwatch_logs_insights
+        source: "guardian/${AWS_ACCOUNT_B}/${AWS_REGION}/divb-shared/app"
+        log_groups: ["guardian/${AWS_ACCOUNT_B}/${AWS_REGION}/divb-shared/app"]
+        assume_role: "arn:aws:iam::${AWS_ACCOUNT_B}:role/${ASSUME_ROLE}"
+        # The log group is the partition: the source is 1:1 with this shard.
+        partition_binding: {kind: fixed, values: [divb-shared]}
+        columns:
+          timestamp: "@timestamp"
+          service: service
+          level: level
+          raw_message: "@message"
+          trace_id: traceId
+
+  - name: gcp
+    signal: logs
+    platform: gcp
+    project: "${GCP_PROJECT}"
+    attributes: {platform: gcp, division: DivisionB}
+    placements:
+      - id: bigquery
+        backend: bigquery
+        source: "${GCP_PROJECT}.${BQ_DATASET_DIVB}.run_googleapis_com_stdout"
+        partition_binding: {kind: fixed, values: [divb-shared]}
+        columns:
+          timestamp: timestamp
+          service: resource.labels.service_name
+          level: severity
+          raw_message: jsonPayload.message
+
+  - name: k8s
+    signal: logs
+    platform: kubernetes
+    attributes: {cluster: k8s-main, division: DivisionB}
+    placements:
+      - id: ${K8S_SQL_PLACEMENT_ID}
+        backend: ${K8S_SQL_BACKEND}
+        source: ${K8S_SQL_SOURCE}
+        partition_binding: ${K8S_SQL_BINDING}

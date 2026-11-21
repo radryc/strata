@@ -64,6 +64,7 @@ flowchart TB
 | Repository | Language | Role |
 | --- | --- | --- |
 | [monofs](https://github.com/radryc/monofs) | Go | Distributed filesystem and source plane: virtual monorepo, session VCS, search, OCI registry, Bazel cache, logengine |
+| [sqlagregator](https://github.com/radryc/sqlagregator) | Go | Federated SQL coordinator for CloudWatch, BigQuery, ClickHouse, and MonoFS node-local DuckDB; consumed by MonoFS |
 | [guardian](https://github.com/radryc/guardian) | Go | Declarative deployment control plane: partitions, intents, typed assets, drift, push/apply, rollback |
 | [doctor](https://github.com/radryc/doctor) | Go | Privacy-first telemetry backend: OTLP ingest, HMAC tokenization, trace/log/metric query, Grafana-compatible APIs |
 | [agent](https://github.com/radryc/agent) | Python | Assistance plane: Otto/Steve personas, a tool loop over Guardian, Doctor, and MonoFS, approval-gated mutations, writable workspace |
@@ -84,8 +85,8 @@ experiments, not part of Strata.
 
 ## Bootstrap
 
-Prerequisites: Docker with BuildKit, `kind`, `kubectl`, Go 1.26+, and OpenSSL.
-Node 22 is only needed if you rebuild the Guardian UI.
+Prerequisites: Docker with BuildKit, `kind`, `kubectl`, `curl`, Go 1.26+, and
+OpenSSL. Node 22 is only needed if you rebuild the Guardian UI.
 
 All paths below start from the public `strata` checkout. `scripts/clone.sh` is
 idempotent, and `dev-kind-up.sh` calls it automatically if the sibling
@@ -113,11 +114,11 @@ application partition.
 | <http://127.0.0.1:29020> | Authentik |
 | <http://127.0.0.1:18088> | Example application |
 
-Guardian, Doctor, and MonoFS all authenticate through Authentik. Doctor and
-MonoFS redirect anonymous browsers to the login page; use the **Log in** button
-on Guardian. The development Authentik admin is `akadmin` / `password`
-(`admin@example.com`, admin on all partitions). Create another user and set the
-password with:
+Guardian, Doctor, and MonoFS all authenticate through Authentik and redirect
+anonymous browsers to its login page. The development Authentik admin is
+`akadmin` / `password` (`admin@example.com`), which the repo-managed access
+policy grants admin across the platform partitions once it is published. Create
+another user and set the password with:
 
 ```bash
 ./scripts/create-authentik-user.sh \
@@ -164,8 +165,7 @@ partition template is documented in
 
 ## Build from source
 
-Clone this repository, then let the script create the sibling checkout layout
-that the Go `replace` directives expect:
+Clone this repository, then let the script create the sibling checkouts:
 
 ```bash
 git clone https://github.com/radryc/strata.git
@@ -173,11 +173,12 @@ cd strata
 ./scripts/clone.sh
 ```
 
-The result is:
+The expected layout is:
 
 ```text
 strata/          # this repo — the front door
 monofs/          # sibling checkouts
+sqlagregator/    # required by monofs; not in repos.txt
 guardian/
 doctor/
 agent/
@@ -190,9 +191,11 @@ k8s-top/
 hub/
 ```
 
-`kvs` and `cfg` must stay next to `monofs`; `monofs` must stay next to
-`guardian` and `doctor`. The clone script defaults to the parent directory, so
-the layout is correct out of the box.
+`kvs` and `cfg` must stay next to `monofs`, and `monofs` also replaces
+`github.com/radryc/sqlagregator` with `../sqlagregator`. `monofs` must stay
+next to `guardian` and `doctor`. The clone script defaults to the parent
+directory, so clone `sqlagregator` into that same parent before building;
+`repos.txt` does not list it.
 
 Then build the stack in dependency order:
 

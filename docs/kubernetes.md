@@ -51,8 +51,13 @@ DOCKER_BUILDKIT=1 docker build \
 
 ## 3. Create secrets
 
-`k8s-up.sh` generates fresh local tokens automatically. For production, create
-the secret from your secret manager instead:
+`k8s-up.sh` always (re)applies the `strata-secrets` Secret from
+`.strata/dev.env`, generating missing values on first run. To supply your own
+values, write them into `.strata/dev.env` (or delete it and export
+`MONOFS_TOKEN`, `MONOFS_ENCRYPTION_KEY`, `DOCTOR_INGEST_AUTH_TOKEN`, and
+`DOCTOR_PRIVACY_HMAC_KEY`) before running the script. Applying the Secret
+afterwards only takes effect after the workloads restart. The equivalent Secret
+is:
 
 ```bash
 kubectl create namespace strata
@@ -115,7 +120,9 @@ single Guardian replica. Before production:
 - use a managed or multi-node storage class and back it up;
 - set `GUARDIAN_REQUIRE_UI_AUTH=true` and configure OIDC;
 - restrict the pusher ClusterRole to the namespaces/resources you actually use;
-- run at least two Guardian replicas and configure sharding or leader election;
+- run multiple Guardian replicas only with `GUARDIAN_SHARD_INDEX` and
+  `GUARDIAN_SHARD_COUNT` set to non-overlapping shards; the core loops have no
+  leader election;
 - terminate TLS at the ingress and enable `GUARDIAN_ENABLE_HSTS=true`;
 - set `DOCTOR_MONOFS_TLS_REQUIRE=true` and mount MonoFS client certificates;
 - replace the generated secrets with your secret manager.

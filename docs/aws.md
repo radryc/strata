@@ -34,13 +34,15 @@ aws sts get-caller-identity
 npx cdk bootstrap "aws://$(aws sts get-caller-identity --query Account --output text)/$AWS_REGION"
 ```
 
-Deploy the stack once so the secret exists:
+Deploy the stack once; it creates `strata/monofs/encryption-key` with a
+generated 64-hex-character key:
 
 ```bash
 ./deploy.sh -y
 ```
 
-Then set the MonoFS encryption key and restart the storage service:
+To use a key you control, write it before MonoFS stores any data (replacing the
+key later makes existing data unreadable), then restart the storage service:
 
 ```bash
 aws secretsmanager put-secret-value \
@@ -49,8 +51,9 @@ aws secretsmanager put-secret-value \
   --profile "$AWS_PROFILE" --region "$AWS_REGION"
 ```
 
-The CDK output includes the Guardian and MonoFS URLs, the MonoFS token secret,
-and (when enabled) the Doctor URL and OTLP endpoint.
+`StrataStack` outputs the Guardian and MonoFS URLs, the MonoFS token secret, and
+(when SSO and observability are enabled) the Doctor URL. `ObservabilityStack`
+outputs the OTLP endpoint.
 
 Cognito SSO is enabled by default in `cdk.json`. `./deploy.sh` uses
 `STRATA_ADMIN_PASSWORD` when set; otherwise it generates a one-time password.
@@ -64,10 +67,12 @@ passwords, and Cognito CLI commands.
 ./deploy.sh --with-pusher -y
 ```
 
-The CDK project deploys Doctor and the OTLP gateway by default
-(`deployObservability=true`). `--with-pusher` adds the AWS read API and pusher
-used for observed stacks. Disable observability with
-`-c deployObservability=false` if you do not need it.
+`deploy.sh` deploys `StrataStack`, plus `AwsPusherStack` with `--with-pusher`
+and `DemoStack` with `--with-demo`. Doctor and the OTLP gateway live in the
+separate `ObservabilityStack` (the CDK app enables it with
+`deployObservability=true`); deploy it explicitly with `npx cdk deploy` when you
+need AWS-side observability, or disable it with `-c deployObservability=false`
+if you do not.
 
 Useful outputs:
 
@@ -85,7 +90,8 @@ The important output names are `AppUrl`, `MonofsUrl`,
 ## 4. Register the AWS pusher
 
 The CDK stack creates the pusher service. Register it with Guardian using the
-outputs from the stack (the exact command is printed by `./deploy.sh`):
+`PusherName`, `AwsReadApiUrl`, and `AwsReadTokenSecretArn` outputs from the
+stack:
 
 ```bash
 guardianctl --guardian-url "$GUARDIAN_URL" pusher add \
@@ -104,13 +110,15 @@ example. The partition lives in the same repository:
 ```text
 my-app/
 ├── .guardian/config.yaml
+├── cdk/                       # CDK application (for implementation: cdk)
 └── guardian/partitions/my-app/
     ├── config.yaml
-    └── intents/app.yaml
+    ├── intents/app.yaml
+    └── payloads/stack.yaml
 ```
 
-For a CDK application, synthesize the assembly and reference it from the
-intent:
+For a CDK application, synthesize the assembly and describe it in a payload
+manifest that the intent references:
 
 ```yaml
 spec:
@@ -123,18 +131,27 @@ spec:
     - type: CDKStack
       name: my-app-stack
       payload:
-        aws: /partitions/my-app/payloads/aws
+        aws: /partitions/my-app/payloads/stack.yaml
       properties:
-        stackName: MyAppStack
+        context:
+          appName: my-app
+```
+
+`guardian/partitions/my-app/payloads/stack.yaml` points at the synthesized
+assembly:
+
+```yaml
+sourceType: cdk-ts
+prebuiltAssemblyDir: /partitions/my-app/payloads/aws
+stackName: MyAppStack
+stackID: MyAppStack
 ```
 
 Then push the partition:
 
 ```bash
 cd my-app
-npx cdk synth --output cdk.out
-mkdir -p guardian/partitions/my-app/payloads
-cp -R cdk.out guardian/partitions/my-app/payloads/aws
+(cd cdk && npx cdk synth --output ../guardian/partitions/my-app/payloads/aws)
 
 guardianctl --guardian-url "$GUARDIAN_URL" repo add \
   --name my-app --pusher "aws-$ACCOUNT" --partition my-app \
@@ -152,10 +169,9 @@ use `implementation: cdk` and commit only the synthesized assembly reference.
 
 ```bash
 cd ../aws
-npx cdk destroy AwsPusherStack ObservabilityStack StrataStack
+npx cdk destroy AwsPusherStack DemoStack ObservabilityStack StrataStack
 ```
 
-Delete the MonoFS S3/EFS resources only after you have exported any data you
-need. The versioned S3 bucket is retained by CloudFormation by default; empty it
-explicitly if you want a full teardown. See the `aws` repository README for the
-full stack matrix and toggles.
+Pass only the stacks you deployed. Export any data you need first: the versioned
+S3 bucket and the EFS filesystem use `removalPolicy: DESTROY`. See the `aws`
+repository README for the full stack matrix and toggles.

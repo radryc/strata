@@ -1,0 +1,19 @@
+apiVersion: guardian/v1alpha1
+kind: Intent
+metadata:
+  name: images
+spec:
+  intentType: standard
+  targetPusher: ${K8S_PUSHER}
+  target:
+    cluster: ${K8S_CLUSTER}
+    namespace: ${K8S_NAMESPACE}
+  locked: false
+  assets:
+    - type: ImageBuild
+      name: app
+      properties:
+        buildContext: ${APP_BUILD_CONTEXT}
+        dockerfile: Dockerfile
+        registry: ${IMAGE_REGISTRY}
+        repository: strata-multicloud-app

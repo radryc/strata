@@ -1,0 +1,64 @@
+# DivisionA / UserA: one shared partition, three provider shards.
+#
+#   AWS  -> CloudWatch Omni (federated SQL, attribute partition binding)
+#   GCP  -> BigQuery (Cloud Logging sink, fixed partition binding)
+#   k8s  -> MonoFS local Parquet (partition column)
+#
+# ${AWS_ACCOUNT_A}, ${AWS_REGION}, ${GCP_PROJECT}, ${ASSUME_ROLE}, and ${BQ_DATASET_DIVA}
+# are substituted by apply.sh before publish.
+name: diva-shared
+
+attributes:
+  division: DivisionA
+  department: DepartmentA
+  owner: usera
+
+shards:
+  - name: aws
+    signal: logs
+    platform: aws
+    account: "${AWS_ACCOUNT_A}"
+    region: "${AWS_REGION}"
+    attributes: {account: "${AWS_ACCOUNT_A}", region: "${AWS_REGION}", division: DivisionA}
+    placements:
+      - id: omni
+        backend: omni
+        source: logs.default
+        # One router reads the member account through the organization role.
+        assume_role: "arn:aws:iam::${AWS_ACCOUNT_A}:role/${ASSUME_ROLE}"
+        partition_binding:
+          kind: attribute
+          path: ["resource", "attributes", "guardian.partition"]
+        columns:
+          timestamp: "@timestamp"
+          service: service
+          level: level
+          raw_message: "@message"
+
+  - name: gcp
+    signal: logs
+    platform: gcp
+    project: "${GCP_PROJECT}"
+    attributes: {platform: gcp, division: DivisionA}
+    placements:
+      - id: bigquery
+        backend: bigquery
+        source: "${GCP_PROJECT}.${BQ_DATASET_DIVA}.run_googleapis_com_stdout"
+        # The log sink only routes this division's service, so the source is
+        # already partition-scoped.
+        partition_binding: {kind: fixed, values: [diva-shared]}
+        columns:
+          timestamp: timestamp
+          service: resource.labels.service_name
+          level: severity
+          raw_message: jsonPayload.message
+
+  - name: k8s
+    signal: logs
+    platform: kubernetes
+    attributes: {cluster: k8s-main, division: DivisionA}
+    placements:
+      - id: ${K8S_SQL_PLACEMENT_ID}
+        backend: ${K8S_SQL_BACKEND}
+        source: ${K8S_SQL_SOURCE}
+        partition_binding: ${K8S_SQL_BINDING}

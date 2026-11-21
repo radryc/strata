@@ -8,6 +8,7 @@ with Guardian, MonoFS, Doctor, and a sample application.
 - Docker (running, with BuildKit)
 - kind
 - kubectl
+- curl
 - Go 1.26+
 - OpenSSL
 - Node 22 only if you build the Guardian UI from source
@@ -50,10 +51,10 @@ When it finishes:
 | <http://127.0.0.1:29020> | Authentik |
 | <http://127.0.0.1:18088> | Sample application |
 
-Guardian, Doctor, and MonoFS all authenticate through Authentik. Doctor and
-MonoFS redirect anonymous browsers to the login page; use the **Log in** button
-on Guardian. The development Authentik admin is `akadmin` / `password`
-(`admin@example.com`, granted admin on all partitions).
+Guardian, Doctor, and MonoFS all authenticate through Authentik and redirect
+anonymous browsers to its login page. The development Authentik admin is
+`akadmin` / `password` (`admin@example.com`), which the repo-managed access
+policy grants admin across the platform partitions once it is published.
 
 Create another user and set their password:
 
@@ -135,7 +136,8 @@ The repository's `.gitignore` excludes `.strata/`.
   and loads the sample image with `kind load docker-image`. For your own image,
   either load it into kind or push it to a registry the cluster can reach.
 - **Port already in use:** stop the conflicting process or edit the
-  port-forward ports in `scripts/lib/bootstrap-common.sh`.
+  port-forward ports in `scripts/dev-kind-up.sh` (the sample app port lives in
+  `scripts/lib/bootstrap-common.sh`).
 - **Authentik login fails:** check `kubectl -n authentik get pods` and
   `kubectl -n authentik logs deploy/authentik-server`.
 
