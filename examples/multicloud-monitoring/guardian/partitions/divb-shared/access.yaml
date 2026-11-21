@@ -1,0 +1,7 @@
+version: 1
+users:
+  userb@example.com:
+    partitions: [divb-shared]
+    logs: [divb-shared]
+    traces: [divb-shared]
+    role: viewer

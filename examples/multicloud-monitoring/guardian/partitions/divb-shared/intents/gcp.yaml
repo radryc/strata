@@ -1,0 +1,32 @@
+apiVersion: guardian/v1alpha1
+kind: Intent
+metadata:
+  name: gcp
+spec:
+  intentType: standard
+  joins: [images]
+  targetPusher: ${GCP_PUSHER}
+  target:
+    account: ${GCP_PROJECT}
+    region: ${GCP_REGION}
+  locked: false
+  assets:
+    - type: Compute
+      name: app
+      properties:
+        image: ${intent.images.outputs.app.imageRef}
+        imagePullPolicy: IfNotPresent
+        replicas: 1
+        env:
+          TELEMETRY_BACKEND: gcp
+          OTEL_SERVICE_NAME: divb-shared.app.gcp
+          OTEL_RESOURCE_ATTRIBUTES: guardian.partition=divb-shared,guardian_partition=divb-shared,guardian.intent=gcp,guardian.asset=app,guardian.asset.type=Compute,guardian.identity.kind=managed,guardian.provider=gcp
+          OTEL_PROPAGATORS: tracecontext,baggage
+          OTEL_TRACES_SAMPLER: parentbased_always_on
+          TARGET_URL: "${AWS_URL_B}"
+          PARTITION_NAME: divb-shared
+        ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+            servicePort: 8080

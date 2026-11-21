@@ -1,0 +1,22 @@
+{
+  "name": "strata-demo-app",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1156.0",
+    "@opentelemetry/api": "^1.10.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.82.0",
+    "@opentelemetry/core": "^3.0.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.300.0",
+    "@opentelemetry/id-generator-aws-xray": "^3.0.0",
+    "@opentelemetry/propagator-aws-xray": "^3.0.0",
+    "@opentelemetry/sdk-node": "^0.300.0",
+    "@opentelemetry/sdk-trace": "^3.0.0",
+    "@opentelemetry/resources": "^3.0.0",
+    "@google-cloud/opentelemetry-cloud-trace-exporter": "^3.1.0"
+  }
+}

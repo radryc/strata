@@ -8,7 +8,7 @@ examples, and the documentation that ties the component repositories together.
 
 | In this repository | In the component repositories |
 |---|---|
-| Bootstrap and teardown scripts for kind, Kubernetes, and AWS | MonoFS, Guardian, Doctor, LB, Agent, KVS, CFG, Packager, k8s-top, AWS CDK, Hub |
+| Bootstrap and teardown scripts for kind, Kubernetes, and AWS | MonoFS, SQLAggregator, Guardian, Doctor, LB, Agent, KVS, CFG, Packager, k8s-top, AWS CDK, Hub |
 | Reference Kubernetes manifests under `bootstrap/k8s/` | Guardian partition definitions owned by each component |
 | A prepared application partition under `bootstrap/partitions/` | Runtime images and binaries |
 | Public documentation under `docs/` | Component architecture, security, and operating guides |
@@ -24,6 +24,7 @@ bootstrap/
   auth/                      development Authentik SSO reference
 examples/
   aws-app/                   sample application for the AWS deployment
+  multicloud-monitoring/     AWS + GCP + k8s deployment authored as GitOps state
   onboarding-app/            sample application for the onboarding flow
 scripts/
   clone.sh                   clone component repositories as siblings
@@ -37,8 +38,9 @@ repos.txt                    component repositories in build order
 
 ## Platform topology
 
-The bootstrap deploys five planes. Each plane is one or more component
-repositories:
+The platform spans five planes. The public bootstrap starts the three core
+planes (MonoFS, Guardian, and Doctor); LB and Agent run from their own
+repositories. Each plane is one or more component repositories:
 
 ```mermaid
 flowchart TB
@@ -56,16 +58,18 @@ flowchart TB
         AGENT[Agent<br/>tools + approval gates]
     end
 
+    TARGETS["Guardian-deployed workloads"]
+
     SCRIPTS --> MANIFESTS
     SCRIPTS --> PARTITIONS
     MANIFESTS --> MONOFS
     MANIFESTS --> GUARDIAN
     MANIFESTS --> DOCTOR
     PARTITIONS -->|guardianctl push| GUARDIAN
-    GUARDIAN -->|DIFF / CHECK / APPLY| MONOFS
-    GUARDIAN -->|assets| DOCTOR
+    GUARDIAN -->|DIFF / CHECK / APPLY| TARGETS
+    GUARDIAN -->|self-telemetry| DOCTOR
     DOCTOR -->|telemetry chunks| MONOFS
-    LB -->|routes| MONOFS
+    LB -->|TCP routes| TARGETS
     AGENT -->|reads| MONOFS
     AGENT -->|reads/writes| GUARDIAN
     AGENT -->|reads| DOCTOR
@@ -80,14 +84,16 @@ instead of creating duplicate deployments.
 
 1. `scripts/clone.sh` reads `repos.txt` and clones each component as a sibling
    directory. The Go `replace` directives in MonoFS, Guardian, Doctor, and CFG
-   expect this layout.
+   expect this layout; MonoFS additionally needs a `../sqlagregator` checkout.
 2. `scripts/dev-kind-up.sh` builds the images, creates the kind cluster, applies
    `bootstrap/kind/cluster.yaml` and `bootstrap/k8s/`, then ingests the
    component repositories and imports their partitions.
 3. `scripts/k8s-up.sh` repeats the deployment against the current kubeconfig;
-   `ARGS` are forwarded to the helper for image prefixes, tags, and namespaces.
-4. `scripts/onboard-app.sh` renders an application partition from
-   `bootstrap/partitions/onboarding-app/` and pushes it with `guardianctl`.
+   `make k8s ARGS=...` forwards flags such as `--build`/`--push`, and image
+   prefixes, tags, and namespaces come from environment variables.
+4. `scripts/onboard-app.sh` pushes an application repository's
+   `guardian/partitions/<name>` bundle (or registers the repository with
+   `--register` so Guardian imports it) using `guardianctl`.
 5. `scripts/aws-up.sh` deploys the AWS CDK stack from the `aws` repository.
 
 The checked-in manifests use the `strata` namespace and the placeholders
@@ -99,6 +105,7 @@ Scripts render them into `.strata/`; the checked-in files are not modified.
 | Repository | Responsibility |
 |---|---|
 | `monofs` | Distributed filesystem, Git workspace, source/state/log-engine plane |
+| `sqlagregator` | Federated SQL coordinator for CloudWatch, BigQuery, ClickHouse, and DuckDB; used by MonoFS |
 | `guardian` | Declarative deployment control plane: partitions, intents, typed assets, reconciliation, drift |
 | `doctor` | Privacy-first telemetry backend: OTLP ingest, HMAC tokenization, trace/log/metric query, alerts |
 | `lb` | L4 registry and TCP proxy (LB-Edge) |

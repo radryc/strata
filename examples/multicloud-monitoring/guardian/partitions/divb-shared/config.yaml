@@ -1,0 +1,33 @@
+apiVersion: guardian/v1alpha1
+kind: Partition
+metadata:
+  name: divb-shared
+  labels:
+    role: division
+    division: DivisionB
+    department: DepartmentB
+    owner: userb
+spec:
+  defaults:
+    observability:
+      enabled: true
+      autoInstrument: otelc
+      cloudwatch: auto
+    probes:
+      enabled: true
+      interval: 30s
+      timeout: 3s
+      retries: 2
+      httpPaths: ["/healthz"]
+      tcpPorts: [8080]
+      maxTargets: 50
+      allowExternal: false
+  deletionPolicy: destroy
+  reconciliation:
+    mode: auto
+    interval: 30s
+  labels:
+    stack: multicloud
+    component: divb-shared
+    topology: aws-gcp-k8s
+    managedBy: guardian

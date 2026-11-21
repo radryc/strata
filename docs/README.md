@@ -11,6 +11,7 @@ Start here:
 | [aws.md](aws.md) | You want the control plane on AWS ECS/Fargate |
 | [onboarding-application.md](onboarding-application.md) | You want to deploy an app from its own repository |
 | [bootstrap-partition.md](bootstrap-partition.md) | You want the prepared, key-free partition template |
+| [hardening.md](hardening.md) | You want production security hardening settings (auth, TLS, SSRF, PII, audit) |
 
 The quickest path:
 

@@ -72,9 +72,8 @@ kubectl -n "$STRATA_NAMESPACE" set env deploy/guardiand \
   MONOFS_OIDC_REDIRECT_URL=http://127.0.0.1:28090/auth/callback \
   MONOFS_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/ \
   MONOFS_OIDC_END_SESSION_URL=http://127.0.0.1:29020/application/o/monofs/end-session/ \
-  MONOFS_AUTHZ_ENFORCE_UI=false \
   GUARDIAN_REQUIRE_UI_AUTH=true \
-  MONOFS_AUTHZ_GRANTS_JSON='[{"subject":"admin@example.com","partition":"*","role":"admin"}]' >/dev/null
+  >/dev/null
 
 # MonoFS reads issuer/audience from flags, not environment variables.
 router_args="$(kubectl -n "$STRATA_NAMESPACE" get deploy monofs-router -o jsonpath='{.spec.template.spec.containers[0].args}')"
@@ -93,8 +92,6 @@ kubectl -n "$STRATA_NAMESPACE" set env deploy/monofs-router \
   MONOFS_ROUTER_OIDC_REDIRECT_URL=http://127.0.0.1:28081/auth/callback \
   MONOFS_ROUTER_OIDC_AUTH_URL=http://127.0.0.1:29020/application/o/authorize/ \
   MONOFS_ROUTER_OIDC_END_SESSION_URL=http://127.0.0.1:29020/application/o/monofs/end-session/ \
-  MONOFS_AUTHZ_ENFORCE_UI=true \
-  MONOFS_AUTHZ_GRANTS_JSON='[{"subject":"admin@example.com","partition":"*","role":"admin"}]' \
   MONOFS_INSECURE_DEV_DISABLE_AUTH- >/dev/null
 
 kubectl -n "$STRATA_NAMESPACE" set env deploy/doctor-query \

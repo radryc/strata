@@ -143,7 +143,7 @@ For the sample app, this is already done by `dev-kind-up.sh`.
 
 ```bash
 export GUARDIAN_URL=http://guardian.example.com
-./scripts/onboard-app.sh --repo ../my-app --pusher k8s-main
+./scripts/onboard-app.sh --repo ../my-app
 ```
 
 The script reads `.guardian/config.yaml` and pushes

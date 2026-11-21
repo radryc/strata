@@ -1,0 +1,43 @@
+apiVersion: guardian/v1alpha1
+kind: Intent
+metadata:
+  name: k8s
+spec:
+  intentType: standard
+  joins: [images]
+  targetPusher: ${K8S_PUSHER}
+  target:
+    cluster: ${K8S_CLUSTER}
+    namespace: ${K8S_NAMESPACE}
+  locked: false
+  assets:
+    - type: Compute
+      name: client
+      properties:
+        image: ${intent.images.outputs.app.imageRef}
+        imagePullPolicy: IfNotPresent
+        replicas: 1
+        env:
+          PORT: "8080"
+          PARTITION_NAME: divb-shared
+          TARGET_URL: "${GCP_URL_B}"
+          AWS_TARGET_URL: "${AWS_URL_B}"
+          TELEMETRY_BACKEND: otlp
+          OTEL_SERVICE_NAME: divb-shared.app.k8s-client
+          OTEL_EXPORTER_OTLP_ENDPOINT: "${OTLP_ENDPOINT}"
+          OTEL_EXPORTER_OTLP_HEADERS: "${OTLP_HEADERS}"
+          OTEL_RESOURCE_ATTRIBUTES: guardian.partition=divb-shared,guardian_partition=divb-shared,guardian.intent=k8s,guardian.asset=client,guardian.asset.type=Compute,guardian.identity.kind=managed,guardian.provider=k8s
+          OTEL_PROPAGATORS: tracecontext,baggage,xray
+          OTEL_TRACES_SAMPLER: parentbased_always_on
+        ports:
+          - containerPort: 8080
+            name: http
+            protocol: TCP
+            servicePort: 8080
+        resources:
+          limits:
+            cpu: 250m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 64Mi

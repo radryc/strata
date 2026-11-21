@@ -1,0 +1,7 @@
+version: 1
+users:
+  usera@example.com:
+    partitions: [diva-shared]
+    logs: [diva-shared]
+    traces: [diva-shared]
+    role: viewer

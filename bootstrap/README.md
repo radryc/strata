@@ -31,10 +31,11 @@ Guardian, and imports the partitions. The partitions observe the
 bootstrap-started workloads and add probes; they do not create duplicate
 deployments. The manifests use the default `strata` namespace.
 
-The only placeholders in the prepared partition are `__APP_IMAGE__`,
-`__IMAGE_PREFIX__`, `__IMAGE_TAG__`, and `__NAMESPACE__`. The bootstrap renders
-them into `.strata/`; the checked-in files are never modified. No private keys,
-account IDs, or registry credentials are stored here.
+The prepared partition only contains the `__APP_IMAGE__` placeholder. The
+platform manifests additionally use `__IMAGE_PREFIX__`, `__IMAGE_TAG__`, and
+`__NAMESPACE__`. The bootstrap renders all of them into `.strata/`; the
+checked-in files are never modified. No private keys, account IDs, or registry
+credentials are stored here.
 
 See:
 

@@ -1,0 +1,9 @@
+# Global shard/placement overrides for the divisions demo.
+#
+# Published by `guardianctl access publish` (auto-detected from the routing/
+# directory next to policy.yaml) and embedded in the compiled policy bundle.
+# ${AWS_REGION} and ${GCP_PROJECT} are substituted by apply.sh before publish.
+defaults:
+  attributes:
+    environment: demo
+    data_classification: internal
