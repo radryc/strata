@@ -74,14 +74,6 @@ flowchart TB
 | [packager](https://github.com/radryc/packager) | Go | Encrypted, compressed object-store archives with O(1) random access |
 | [aws](https://github.com/radryc/aws) | TypeScript | CDK project that deploys MonoFS and Guardian to ECS Fargate |
 | [k8s-top](https://github.com/radryc/k8s-top) | Go | Kubernetes metrics exporter for pods and containers, annotated with Guardian partition/intent/asset labels |
-| [hub](https://github.com/radryc/hub) | HTML/CSS | Static landing page for stratasre.com |
-
-`stratatools` is currently private. It adds the packaged partition templates,
-but the public repositories above are enough to build and run the core engines.
-
-Other repositories on [@radryc](https://github.com/radryc?tab=repositories) —
-`memegen`, `devdns`, `awsasset`, `promtest`, and friends — are separate
-experiments, not part of Strata.
 
 ## Bootstrap
 
