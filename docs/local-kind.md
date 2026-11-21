@@ -40,14 +40,16 @@ The script:
 4. generates local-only MonoFS, Doctor, Guardian, and Agent secrets in
    `.strata/dev.env`;
 5. starts the control plane in the `strata` namespace, including MonoFS
-   search, Doctor sentinel, LB Edge, and the Agent;
-6. deploys Authentik and enables OIDC login;
-7. ingests and indexes the public `monofs`, `guardian`, and `doctor`
+   search and Doctor sentinel;
+6. deploys Authentik and enables OIDC login (the Agent needs it before it
+   starts);
+7. starts LB Edge and the Agent;
+8. ingests and indexes the public `monofs`, `guardian`, and `doctor`
    repositories into MonoFS and registers them with Guardian;
-8. imports each repository's `guardian/partitions/<name>` bundle, which adds
+9. imports each repository's `guardian/partitions/<name>` bundle, which adds
    observed platform partitions and probes for MonoFS, Guardian, and Doctor;
-9. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
-10. annotates the deployed app service so the LB Edge endpoints agent opens
+10. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
+11. annotates the deployed app service so the LB Edge endpoints agent opens
     external port `28088`, and starts port-forwards.
 
 When it finishes:
@@ -63,8 +65,8 @@ When it finishes:
 | <http://127.0.0.1:28088> | Sample application through LB Edge |
 | <http://127.0.0.1:18081> | LB Edge registry snapshot (`/services`) |
 
-Guardian, Doctor, and MonoFS all authenticate through Authentik and redirect
-anonymous browsers to its login page. The development Authentik admin is
+Guardian, Doctor, MonoFS, and the Agent all authenticate through Authentik and
+redirect anonymous browsers to its login page. The development Authentik admin is
 `akadmin` / `password` (`admin@example.com`), which the repo-managed access
 policy grants admin across the platform partitions once it is published.
 
