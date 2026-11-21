@@ -192,6 +192,89 @@ kubectl -n onboarding-app logs deploy/<deployment-name> -f
 kubectl -n onboarding-app exec deploy/<deployment-name> -- wget -qO- localhost:8080/healthz
 ```
 
+## Access Doctor
+
+Sign in through Authentik at **<http://127.0.0.1:28080>**. The UI shows
+traces, logs, metrics, the SQL console, and Guardian health.
+
+The **OTLP ingest listener is cluster-internal** (`doctor-ingest:4317` gRPC,
+`:4318` HTTP). Forward it to the host when you need to send telemetry from
+outside the cluster:
+
+```bash
+kubectl -n strata port-forward svc/doctor-ingest 4317:4317 4318:4318
+```
+
+Ingest requires the token from `.strata/dev.env`; `/healthz` is anonymous:
+
+```bash
+curl -s http://127.0.0.1:4318/healthz
+# {"status":"ok"}
+
+set -a; . .strata/dev.env; set +a
+curl -sS -X POST http://127.0.0.1:4318/v1/traces \
+  -H "Authorization: Bearer $DOCTOR_INGEST_AUTH_TOKEN" \
+  -H 'Content-Type: application/json' \
+  --data-binary @span.json
+# 202 {}
+```
+
+That shared token is scoped to the `default` tenant. Send
+`X-Doctor-Tenant: <name>` to select another tenant when your credential allows
+it; gRPC uses the `x-doctor-tenant` metadata key and the same
+`authorization: Bearer ...` metadata.
+
+`doctor-query` also serves Grafana-compatible read APIs on the same port:
+
+| API | Paths |
+|---|---|
+| Prometheus | `/api/v1/query`, `/api/v1/query_range`, `/api/v1/labels`, `/api/v1/series` |
+| Loki | `/loki/api/v1/query`, `/loki/api/v1/query_range`, `/loki/api/v1/labels` |
+| Tempo | `/api/search`, `/api/traces/<trace-id>` |
+
+With OIDC enabled these return `401` anonymously. Use the UI, or send a bearer
+token issued by Authentik. `/healthz`, `/ready`, and `/metrics` stay open.
+
+## Access MonoFS
+
+Sign in through Authentik at **<http://127.0.0.1:28081>** to browse the
+ingested repositories and files, workspaces, and the search/tree UI.
+
+The gRPC router is exposed as `127.0.0.1:19090` and is what control-plane
+clients use. It requires the MonoFS bearer token:
+
+```bash
+cd strata
+set -a; . .strata/dev.env; set +a
+export GUARDIAN_MONOFS_ALLOW_PLAINTEXT=true
+
+# Repositories registered in MonoFS/Guardian
+.strata/bin/guardianctl --monofs-router 127.0.0.1:19090 \
+  --monofs-token "$MONOFS_TOKEN" repo list
+
+# Ingest another Git repository
+.strata/bin/monofs-admin ingest \
+  --router 127.0.0.1:19090 \
+  --source https://github.com/example/repo \
+  --ingestion-type git --fetch-type blob --replicate-data=true \
+  --token "$MONOFS_TOKEN"
+```
+
+Note: `monofs-admin status` and `monofs-admin repos` do not attach a bearer
+token yet, so they return `401` on this auth-enabled stack. Use the UI or the
+token-aware commands above.
+
+The node API is also forwarded on `127.0.0.1:9000` for debugging. In-cluster
+clients should use `monofs-router.strata.svc.cluster.local:9090` (gRPC) or
+`monofs-server.strata.svc.cluster.local:9000` (node).
+
+Filesystem access uses `monofs-client` from the `monofs` checkout. It needs
+FUSE 3 and node addresses the host can reach; this kind bootstrap advertises
+`monofs-server:9000` (cluster DNS), so a host mount only works after changing
+the router's `--external-addrs` to a forwarded address (for example
+`node-a=127.0.0.1:9000`) and using `--use-external-addrs`. Without that, use the
+UI or run the client inside the cluster.
+
 ## Troubleshooting
 
 - **Pod CrashLoopBackOff:** `kubectl -n strata describe pod <pod>` and
