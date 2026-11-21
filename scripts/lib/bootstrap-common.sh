@@ -39,6 +39,9 @@ save_env() {
     printf 'MONOFS_ENCRYPTION_KEY=%s\n' "$MONOFS_ENCRYPTION_KEY"
     printf 'DOCTOR_INGEST_AUTH_TOKEN=%s\n' "$DOCTOR_INGEST_AUTH_TOKEN"
     printf 'DOCTOR_PRIVACY_HMAC_KEY=%s\n' "$DOCTOR_PRIVACY_HMAC_KEY"
+    printf 'AGENT_API_TOKEN=%s\n' "$AGENT_API_TOKEN"
+    printf 'AGENT_SESSION_SECRET=%s\n' "$AGENT_SESSION_SECRET"
+    printf 'NIGHTWATCH_PROXY_TOKEN=%s\n' "$NIGHTWATCH_PROXY_TOKEN"
     printf 'STRATA_NAMESPACE=%s\n' "$STRATA_NAMESPACE"
     printf 'STRATA_KIND_CLUSTER=%s\n' "$STRATA_KIND_CLUSTER"
     printf 'STRATA_IMAGE_PREFIX=%s\n' "$STRATA_IMAGE_PREFIX"
@@ -53,8 +56,12 @@ ensure_secrets() {
   [[ -n "${MONOFS_ENCRYPTION_KEY:-}" ]] || MONOFS_ENCRYPTION_KEY="$(openssl rand -hex 32)"
   [[ -n "${DOCTOR_INGEST_AUTH_TOKEN:-}" ]] || DOCTOR_INGEST_AUTH_TOKEN="$(openssl rand -hex 32)"
   [[ -n "${DOCTOR_PRIVACY_HMAC_KEY:-}" ]] || DOCTOR_PRIVACY_HMAC_KEY="$(openssl rand -hex 32)"
+  [[ -n "${AGENT_API_TOKEN:-}" ]] || AGENT_API_TOKEN="$(openssl rand -hex 32)"
+  [[ -n "${AGENT_SESSION_SECRET:-}" ]] || AGENT_SESSION_SECRET="$(openssl rand -hex 32)"
+  [[ -n "${NIGHTWATCH_PROXY_TOKEN:-}" ]] || NIGHTWATCH_PROXY_TOKEN="$(openssl rand -hex 32)"
   save_env
-  export MONOFS_TOKEN MONOFS_ENCRYPTION_KEY DOCTOR_INGEST_AUTH_TOKEN DOCTOR_PRIVACY_HMAC_KEY
+  export MONOFS_TOKEN MONOFS_ENCRYPTION_KEY DOCTOR_INGEST_AUTH_TOKEN DOCTOR_PRIVACY_HMAC_KEY \
+    AGENT_API_TOKEN AGENT_SESSION_SECRET NIGHTWATCH_PROXY_TOKEN
 }
 
 ensure_siblings() {
@@ -84,6 +91,9 @@ render_template() {
     -e "s|__IMAGE_TAG__|$STRATA_IMAGE_TAG|g" \
     -e "s|__APP_IMAGE__|$STRATA_APP_IMAGE|g" \
     -e "s|__NAMESPACE__|$STRATA_NAMESPACE|g" \
+    -e "s|__HOST_GATEWAY__|${STRATA_HOST_GATEWAY:-127.0.0.1}|g" \
+    -e "s|__LLM_BASE_URL__|${STRATA_LLM_BASE_URL:-http://127.0.0.1:11434}|g" \
+    -e "s|__LLM_MODEL__|${STRATA_LLM_MODEL:-gemma4:e4b}|g" \
     "$source" >"$dest"
 }
 
@@ -105,6 +115,9 @@ apply_secrets() {
     --from-literal="MONOFS_ENCRYPTION_KEY=$MONOFS_ENCRYPTION_KEY" \
     --from-literal="DOCTOR_INGEST_AUTH_TOKEN=$DOCTOR_INGEST_AUTH_TOKEN" \
     --from-literal="DOCTOR_PRIVACY_HMAC_KEY=$DOCTOR_PRIVACY_HMAC_KEY" \
+    --from-literal="AGENT_API_TOKEN=$AGENT_API_TOKEN" \
+    --from-literal="AGENT_SESSION_SECRET=$AGENT_SESSION_SECRET" \
+    --from-literal="NIGHTWATCH_PROXY_TOKEN=$NIGHTWATCH_PROXY_TOKEN" \
     --dry-run=client -o yaml | kubectl apply -f -
 }
 
@@ -306,7 +319,10 @@ Strata is running.
   Guardian UI : http://127.0.0.1:28090
   Doctor UI   : http://127.0.0.1:28080
   MonoFS UI   : http://127.0.0.1:28081
+  Agent       : http://localhost:3000
   Sample app  : http://127.0.0.1:18088
+  App via LB  : http://127.0.0.1:28088
+  LB registry : http://127.0.0.1:18081
 
   Guardian CLI: http://127.0.0.1:18090
 EOF
@@ -318,7 +334,10 @@ Strata is running.
   Guardian UI : http://127.0.0.1:18090
   Doctor UI   : http://127.0.0.1:18080
   MonoFS UI   : http://127.0.0.1:18081
+  Agent       : http://localhost:3000
   Sample app  : http://127.0.0.1:18088
+  App via LB  : http://127.0.0.1:28088
+  LB registry : http://127.0.0.1:18081
 EOF
   fi
   cat <<EOF

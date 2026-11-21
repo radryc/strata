@@ -1,0 +1,85 @@
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: monofs-search-data
+  namespace: __NAMESPACE__
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Zoekt-backed code search. The router forwards the caller's bearer token and
+# presents its own cluster token on index/refresh calls.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monofs-search
+  namespace: __NAMESPACE__
+  labels: { app: monofs-search }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: { app: monofs-search }
+  template:
+    metadata:
+      labels: { app: monofs-search }
+    spec:
+      securityContext:
+        runAsUser: 100
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: search
+          image: __IMAGE_PREFIX__/monofs-search:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          args:
+            - --port=9100
+            - --index-dir=/data/indexes
+            - --cache-dir=/data/cache
+            - --router-addr=monofs-router.__NAMESPACE__.svc.cluster.local:9090
+            - --diagnostics-addr=:9101
+            - --workers=2
+            - --queue-size=100
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: MONOFS_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: MONOFS_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_ENCRYPTION_KEY }
+          ports:
+            - { name: grpc, containerPort: 9100 }
+            - { name: diagnostics, containerPort: 9101 }
+          readinessProbe:
+            tcpSocket: { port: grpc }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: grpc }
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 200m, memory: 512Mi }
+            limits: { cpu: "2", memory: 2Gi }
+          volumeMounts:
+            - { name: data, mountPath: /data }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: monofs-search-data }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monofs-search
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: monofs-search }
+  ports:
+    - { name: grpc, port: 9100, targetPort: grpc }
+    - { name: diagnostics, port: 9101, targetPort: diagnostics }

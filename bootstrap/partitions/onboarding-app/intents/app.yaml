@@ -17,6 +17,7 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
           PORT: "8080"
+          APP_REVISION: "1"
         ports:
           - containerPort: 8080
             name: http
