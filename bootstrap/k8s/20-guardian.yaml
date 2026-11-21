@@ -81,6 +81,8 @@ spec:
             - name: GUARDIAN_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: GUARDIAN_MONOFS_ALLOW_PLAINTEXT
+              value: "true"
             - name: GUARDIAN_MONOFS_PRINCIPAL
               value: guardiand
             - name: GUARDIAN_PRINCIPAL_ID
@@ -101,6 +103,12 @@ spec:
               value: "false"
             - name: GUARDIAN_RECONCILE_INTERVAL
               value: 1m
+            - name: GUARDIAN_COMPLIANCE_DISABLED
+              value: "true"
+            - name: GUARDIAN_ALLOW_UNPOLICED_MUTATIONS
+              value: "true"
+            - name: GUARDIAN_ALLOW_UNKEYED_ARCHIVE
+              value: "true"
           ports:
             - { name: http, containerPort: 8090 }
           readinessProbe:
@@ -161,6 +169,8 @@ spec:
             - name: GUARDIAN_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: GUARDIAN_MONOFS_ALLOW_PLAINTEXT
+              value: "true"
             - name: GUARDIAN_MONOFS_USE_EXTERNAL_ADDRESSES
               value: "false"
           resources:

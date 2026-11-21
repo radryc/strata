@@ -22,6 +22,8 @@ spec:
             - name: DOCTOR_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_MONOFS_TLS_REQUIRE
+              value: "false"
             - name: DOCTOR_INGEST_AUTH_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
@@ -85,6 +87,8 @@ spec:
             - name: DOCTOR_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_MONOFS_TLS_REQUIRE
+              value: "false"
             - name: DOCTOR_QUERY_HTTP_ADDR
               value: 0.0.0.0:18080
             - name: DOCTOR_DEFAULT_TENANT
