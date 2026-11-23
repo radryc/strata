@@ -54,6 +54,9 @@ spec:
             - name: MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: KVS_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
           ports:
             - { name: api, containerPort: 9000 }
             - { name: raft, containerPort: 7000 }
@@ -156,6 +159,8 @@ spec:
             - --port=9090
             - --http-port=8080
             - --router-name=router-a
+            - --search-addr=monofs-search.__NAMESPACE__.svc.cluster.local:9100
+            - --search-diagnostics-addr=monofs-search.__NAMESPACE__.svc.cluster.local:9101
             - --cluster-id=strata-dev
             - --nodes=node-a=monofs-server:9000
             - --weights=node-a=100
@@ -183,8 +188,8 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 20
           resources:
-            requests: { cpu: 100m, memory: 128Mi }
-            limits: { cpu: "1", memory: 512Mi }
+            requests: { cpu: 100m, memory: 256Mi }
+            limits: { cpu: "1", memory: 2Gi }
 ---
 apiVersion: v1
 kind: Service

@@ -22,6 +22,8 @@ spec:
             - name: DOCTOR_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_MONOFS_TLS_REQUIRE
+              value: "false"
             - name: DOCTOR_INGEST_AUTH_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: DOCTOR_INGEST_AUTH_TOKEN }
@@ -85,8 +87,16 @@ spec:
             - name: DOCTOR_MONOFS_TOKEN
               valueFrom:
                 secretKeyRef: { name: strata-secrets, key: MONOFS_TOKEN }
+            - name: DOCTOR_MONOFS_TLS_REQUIRE
+              value: "false"
             - name: DOCTOR_QUERY_HTTP_ADDR
               value: 0.0.0.0:18080
+            - name: DOCTOR_GUARDIAN_UI_URL
+              value: http://127.0.0.1:28090
+            - name: DOCTOR_GUARDIAN_API_URL
+              value: http://guardiand.__NAMESPACE__.svc.cluster.local:8090
+            - name: DOCTOR_SENTINEL_URL
+              value: http://doctor-sentinel.__NAMESPACE__.svc.cluster.local:18082
             - name: DOCTOR_DEFAULT_TENANT
               value: default
           ports:
@@ -117,3 +127,64 @@ spec:
   selector: { app: doctor-query }
   ports:
     - { name: http, port: 18080, targetPort: http }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doctor-sentinel
+  namespace: __NAMESPACE__
+  labels: { app: doctor-sentinel }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: doctor-sentinel }
+  template:
+    metadata:
+      labels: { app: doctor-sentinel }
+    spec:
+      containers:
+        - name: sentinel
+          image: __IMAGE_PREFIX__/doctor-sentinel:__IMAGE_TAG__
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: OTEL_SDK_DISABLED
+              value: "true"
+            - name: DOCTOR_SENTINEL_HTTP_ADDR
+              value: 0.0.0.0:18082
+            - name: DOCTOR_DEFAULT_TENANT
+              value: default
+            # The kind dev stack does not mint sentinel service tokens or
+            # identity signatures; accept the doctor-query proxy as-is.
+            - name: DOCTOR_SENTINEL_AUTH_ALLOW_ALL
+              value: "true"
+            # No webhook/notification receivers are configured locally.
+            - name: DOCTOR_SENTINEL_DELIVERY_ENABLED
+              value: "false"
+          ports:
+            - { name: http, containerPort: 18082 }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: "1", memory: 512Mi }
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doctor-sentinel
+  namespace: __NAMESPACE__
+spec:
+  selector: { app: doctor-sentinel }
+  ports:
+    - { name: http, port: 18082, targetPort: http }

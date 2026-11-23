@@ -12,19 +12,16 @@ bootstrap/
 ├── k8s/                               # reference control-plane manifests
 │   ├── 00-namespace.yaml
 │   ├── 10-monofs-fetcher.yaml
-│   ├── 10-monofs.yaml
-│   ├── 20-guardian.yaml
-│   └── 30-doctor.yaml
-└── partitions/
-    ├── aws-app/                       # empty placeholder (no config or intents)
-    └── onboarding-app/                # prepared application partition
-        ├── config.yaml
-        └── intents/app.yaml
+│   ├── 10-monofs.yaml                 # server, router, logquery sidecar
+│   ├── 15-monofs-search.yaml          # Zoekt code search
+│   ├── 20-guardian.yaml               # guardiand + k8s pusher
+│   ├── 30-doctor.yaml                 # ingest, query, sentinel
+│   ├── 40-lb.yaml                     # LB Edge + endpoints agent
+│   └── 50-agent.yaml                  # Agent backend, frontend, Nightwatch
+└── partitions/onboarding-app/         # prepared application partition
+    ├── config.yaml
+    └── intents/app.yaml
 ```
-
-`bootstrap/partitions/aws-app/` is currently an empty placeholder: its
-`intents/` directory contains no manifests. The AWS application example lives in
-[`examples/aws-app/`](../examples/aws-app/README.md).
 
 The platform repositories also own their Guardian partitions:
 
@@ -40,10 +37,11 @@ bootstrap-started workloads and add probes; they do not create duplicate
 deployments. The manifests use the default `strata` namespace.
 
 The prepared partition only contains the `__APP_IMAGE__` placeholder. The
-platform manifests additionally use `__IMAGE_PREFIX__`, `__IMAGE_TAG__`, and
-`__NAMESPACE__`. The bootstrap renders all of them into `.strata/`; the
-checked-in files are never modified. No private keys, account IDs, or registry
-credentials are stored here.
+platform manifests additionally use `__IMAGE_PREFIX__`, `__IMAGE_TAG__`,
+`__NAMESPACE__`, `__HOST_GATEWAY__`, `__LLM_BASE_URL__`, and `__LLM_MODEL__`.
+The bootstrap renders all of them into `.strata/`; the checked-in files are
+never modified. No private keys, account IDs, or registry credentials are
+stored here.
 
 See:
 
