@@ -9,7 +9,7 @@ controls below across each plane.
 ## 1. Authentication & Access Control
 
 ### MonoFS
-- Enforce gRPC and HTTP authorization with a compiled access policy (`access/envs/prod.yaml` compiled to `access.yaml`):
+- Enforce gRPC and HTTP authorization with a compiled access policy from the separate `access` repository (clone it next to `strata`, then compile `../access/envs/prod.yaml` to `access.yaml`):
   - Set `--access-enforce` (or `MONOFS_ACCESS_ENFORCE=true`) and point `--access-policy-file` / `MONOFS_ACCESS_POLICY_FILE` at the compiled bundle on `monofs-router` and `monofs-server`.
   - OIDC tokens must carry a non-empty `sub` or `client_id` claim (`OIDCVerifier.Verify` rejects empty-identity tokens).
   - Break-glass tokens (`NewBreakGlassVerifier`) use `ClientID: "break-glass-admin"` and are recognized by `Policy.IsAdmin` in `pkg/authz/policy`.

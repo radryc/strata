@@ -6,17 +6,25 @@ does not require the private `demo-divisions` or `stratatools` repositories.
 ```text
 bootstrap/
 ├── kind/cluster.yaml                  # kind cluster used by dev-kind-up.sh
-├── auth/authentik.yaml                # development Authentik SSO reference
+├── auth/                              # development Authentik SSO reference
+│   ├── README.md
+│   └── authentik.yaml
 ├── k8s/                               # reference control-plane manifests
 │   ├── 00-namespace.yaml
 │   ├── 10-monofs-fetcher.yaml
 │   ├── 10-monofs.yaml
 │   ├── 20-guardian.yaml
 │   └── 30-doctor.yaml
-└── partitions/onboarding-app/         # prepared application partition
-    ├── config.yaml
-    └── intents/app.yaml
+└── partitions/
+    ├── aws-app/                       # empty placeholder (no config or intents)
+    └── onboarding-app/                # prepared application partition
+        ├── config.yaml
+        └── intents/app.yaml
 ```
+
+`bootstrap/partitions/aws-app/` is currently an empty placeholder: its
+`intents/` directory contains no manifests. The AWS application example lives in
+[`examples/aws-app/`](../examples/aws-app/README.md).
 
 The platform repositories also own their Guardian partitions:
 
@@ -39,6 +47,7 @@ credentials are stored here.
 
 See:
 
+- [auth/README.md](auth/README.md)
 - [../docs/local-kind.md](../docs/local-kind.md)
 - [../docs/access-and-login.md](../docs/access-and-login.md)
 - [../docs/kubernetes.md](../docs/kubernetes.md)

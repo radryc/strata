@@ -38,8 +38,21 @@ email:    admin@example.com
 ```
 
 `admin@example.com` is granted admin across the platform partitions by the
-repo-managed access policy in `access/base.yaml`; publish that policy to enforce
-it.
+repo-managed access policy in `../access/base.yaml`; publish that policy to
+enforce it.
+
+### Access policy repository
+
+The access policy lives in the separate `access` repository, which is not listed
+in `repos.txt`; `scripts/clone.sh` does not clone it. Clone it next to the
+`strata` checkout:
+
+```bash
+git clone https://github.com/radryc/access.git ../access
+```
+
+The commands below use `../access/...` from the `strata` checkout. Run them from
+the `access` checkout instead to use `access/...` paths.
 
 ### Create a user and set the password
 
@@ -51,11 +64,11 @@ it.
 ```
 
 Create the user first, then add the matching subject to the access policy
-(`access/envs/<env>.yaml`) and publish it:
+(`../access/envs/<env>.yaml`) and publish it:
 
 ```bash
-guardianctl access lint    --file access/envs/dev.yaml
-guardianctl access publish --file access/envs/dev.yaml --env dev
+guardianctl access lint    --file ../access/envs/dev.yaml
+guardianctl access publish --file ../access/envs/dev.yaml --env dev
 ```
 
 The email is the subject the access policy matches. `--grant` on the user
@@ -130,7 +143,7 @@ issuer:        http://authentik.authentik.svc.cluster.local:9000/application/o/m
   --password 'choose-a-password'
 ```
 
-Add the matching subject to `access/envs/<env>.yaml` and publish it with
+Add the matching subject to `../access/envs/<env>.yaml` and publish it with
 `guardianctl access publish` (or run the user script with `--grant` to print the
 YAML entry). The email is the subject the access policy matches. The script can
 also add Authentik groups with `--groups`.
@@ -159,16 +172,16 @@ default) so loopback requests get no extra mutation exemption.
 
 ### 4. Point MonoFS at Authentik
 
-The MonoFS router takes the issuer and audience as CLI flags, not environment
-variables. Patch its arguments once:
+The MonoFS router accepts the issuer and audience as flags with environment
+fallbacks: `--oidc-issuer` / `MONOFS_OIDC_ISSUER` and `--oidc-audience` /
+`MONOFS_OIDC_AUDIENCE`. Both forms are equivalent; the local
+`scripts/dev-kind-authentik.sh` sets the environment variables and also patches
+the flags for existing deployments. On Kubernetes, set the environment:
 
 ```bash
-kubectl -n strata patch deploy/monofs-router --type=json -p='[
-  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--oidc-issuer=http://authentik.authentik.svc.cluster.local:9000/application/o/monofs/"},
-  {"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--oidc-audience=monofs"}
-]'
-
 kubectl -n strata set env deploy/monofs-router \
+  MONOFS_OIDC_ISSUER=http://authentik.authentik.svc.cluster.local:9000/application/o/monofs/ \
+  MONOFS_OIDC_AUDIENCE=monofs \
   MONOFS_OIDC_CLIENT_ID=monofs \
   MONOFS_OIDC_CLIENT_SECRET=monofs-oidc-secret \
   MONOFS_ROUTER_OIDC_REDIRECT_URL=http://127.0.0.1:28081/auth/callback \
@@ -177,6 +190,10 @@ kubectl -n strata set env deploy/monofs-router \
 kubectl -n strata rollout restart deploy/monofs-router
 kubectl -n strata rollout status deploy/monofs-router --timeout=120s
 ```
+
+To use the flag form instead, append `--oidc-issuer=...` and
+`--oidc-audience=monofs` to the container `args` (as
+`scripts/dev-kind-authentik.sh` does for existing deployments).
 
 Open <http://127.0.0.1:28081>; MonoFS redirects to Authentik, and after login
 returns to the UI.
@@ -263,10 +280,12 @@ aws cognito-idp admin-set-user-password \
 ```
 
 To grant the new user access, add the matching subject to the repo-managed
-access policy (`access/envs/<env>.yaml`) and publish it. The policy is the
-single runtime authorization source for Guardian, MonoFS, and Doctor. The
-default policy grants `admin@example.com` admin across the platform partitions
-and scopes `userb@example.com` to the `customer-demo` partition as a viewer.
+access policy in the separate `access` repository (`../access/envs/<env>.yaml`;
+see [Access policy repository](#access-policy-repository)) and publish it. The
+policy is the single runtime authorization source for Guardian, MonoFS, and
+Doctor. The default policy grants `admin@example.com` admin across the platform
+partitions and scopes `userb@example.com` to the `customer-demo` partition as a
+viewer.
 
 ---
 

@@ -28,18 +28,24 @@ From the `strata` repository:
 The script:
 
 1. creates a `strata-dev` kind cluster;
-2. builds MonoFS (router, server, fetcher), Guardian, Doctor, and the example
-   application images from the local checkouts;
+2. builds MonoFS (router, server, fetcher, logquery), Guardian, Doctor, and the
+   example application images from the local checkouts;
 3. loads the images into kind;
 4. generates local-only MonoFS and Doctor secrets in `.strata/dev.env`;
 5. starts the control plane in the `strata` namespace;
-6. deploys Authentik and enables OIDC login;
-7. ingests the public `monofs`, `guardian`, and `doctor` repositories into
+6. starts the local port-forwards for Guardian, Doctor, and MonoFS;
+7. deploys Authentik and enables OIDC login;
+8. ingests the public `monofs`, `guardian`, and `doctor` repositories into
    MonoFS and registers them with Guardian;
-8. imports each repository's `guardian/partitions/<name>` bundle, which adds
+9. imports each repository's `guardian/partitions/<name>` bundle, which adds
    observed platform partitions and probes for MonoFS, Guardian, and Doctor;
-9. pushes the prepared `bootstrap/partitions/onboarding-app` partition;
-10. starts port-forwards.
+10. pushes the prepared `bootstrap/partitions/onboarding-app` partition, waits
+    for the sample application rollout, and starts its port-forward.
+
+The control-plane port-forwards start before Authentik is enabled, because the
+Authentik rollout restarts the authenticated pods and `dev-kind-authentik.sh`
+re-creates the forwards afterwards. The sample-app forward is added last, once
+the deployment is ready.
 
 When it finishes:
 
