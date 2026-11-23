@@ -17,9 +17,21 @@ repo:
       path: /partitions/diva-shared/payloads/aws
       account: "${AWS_ACCOUNT_A}"
       region: ${AWS_REGION}
+      display:
+        profile: diva-display
+        keys:
+          partition: division_service
+          intent: deployment
+          asset: service
     - partition: divb-shared
       selector: DivBSharedStack
       sourcePath: cdk
       path: /partitions/divb-shared/payloads/aws
       account: "${AWS_ACCOUNT_B}"
       region: ${AWS_REGION}
+      display:
+        profile: divb-display
+        keys:
+          partition: division_service
+          intent: deployment
+          asset: service

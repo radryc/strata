@@ -8,7 +8,7 @@ examples, and the documentation that ties the component repositories together.
 
 | In this repository | In the component repositories |
 |---|---|
-| Bootstrap and teardown scripts for kind, Kubernetes, and AWS | MonoFS, SQLAggregator, Guardian, Doctor, LB, Agent, KVS, CFG, Packager, k8s-top, AWS CDK, Hub |
+| Bootstrap and teardown scripts for kind, Kubernetes, and AWS | MonoFS, SQLAggregator, Guardian, Doctor, LB, Agent, KVS, CFG, Packager, k8s-top, AWS CDK |
 | Reference Kubernetes manifests under `bootstrap/k8s/` | Guardian partition definitions owned by each component |
 | A prepared application partition under `bootstrap/partitions/` | Runtime images and binaries |
 | Public documentation under `docs/` | Component architecture, security, and operating guides |
@@ -21,17 +21,25 @@ bootstrap/
   kind/cluster.yaml          kind cluster definition
   k8s/                       reference control-plane manifests
   partitions/                prepared application partitions
-  auth/                      development Authentik SSO reference
+    onboarding-app/          the only partition with content
+    aws-app/                 empty placeholder (no config or intents)
+  auth/                      development Authentik SSO reference (authentik.yaml)
 examples/
   aws-app/                   sample application for the AWS deployment
   multicloud-monitoring/     AWS + GCP + k8s deployment authored as GitOps state
   onboarding-app/            sample application for the onboarding flow
 scripts/
+  bootstrap.sh               dispatcher for up, down, k8s, k8s-down, aws, onboard, authentik
   clone.sh                   clone component repositories as siblings
   dev-kind-up.sh             build images, create kind cluster, bootstrap
+  dev-kind-down.sh           stop port-forwards and delete the kind cluster
   k8s-up.sh                  build/push images and deploy to a cluster
+  k8s-down.sh                remove the Strata namespaces from the current cluster
   aws-up.sh                  deploy the AWS CDK stack
   onboard-app.sh             onboard an application repository
+  dev-kind-authentik.sh      deploy Authentik and enable OIDC for the local UIs
+  create-authentik-user.sh   create an Authentik user and print an access-policy grant
+  lib/bootstrap-common.sh    shared helpers: secrets, rendering, port-forwards, guardianctl
 docs/                        operator guides and this architecture document
 repos.txt                    component repositories in build order
 ```
@@ -115,7 +123,6 @@ Scripts render them into `.strata/`; the checked-in files are not modified.
 | `packager` | Encrypted, compressed object-store archives with random access |
 | `k8s-top` | Kubernetes pod/container metrics exporter with Guardian identity labels |
 | `aws` | CDK project deploying MonoFS and Guardian to ECS Fargate |
-| `hub` | Static landing page for stratasre.com |
 
 ## Versioning and release model
 
@@ -127,6 +134,8 @@ at build time, so a deployment is reproducible from the clones created by
 
 ## Related documentation
 
+- [Platform architecture set](architecture/README.md) — component topology, flows, and shared contracts
+- [Platform overview](architecture/platform-overview.md) — what each plane and component does, and how they connect
 - [Local kind stack](local-kind.md)
 - [Kubernetes deployment](kubernetes.md)
 - [AWS deployment](aws.md)

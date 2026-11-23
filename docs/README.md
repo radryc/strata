@@ -5,6 +5,7 @@ Start here:
 | Guide | Use it when |
 |---|---|
 | [architecture.md](architecture.md) | You want the repository layout, platform topology, and bootstrap flow |
+| [architecture/](architecture/README.md) | You want the deep, code-grounded architecture of every public component |
 | [local-kind.md](local-kind.md) | You want a working stack on your laptop in one command |
 | [kubernetes.md](kubernetes.md) | You have a Kubernetes cluster and want to deploy Strata |
 | [access-and-login.md](access-and-login.md) | You need to log in, create users, or set passwords |

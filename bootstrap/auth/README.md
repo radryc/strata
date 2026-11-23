@@ -51,6 +51,13 @@ Open <http://127.0.0.1:29020> and sign in as `akadmin` / `password`.
   --partition onboarding-app
 ```
 
-`--grant` prints the access-policy YAML entry to add. Edit
-`access/envs/<env>.yaml` and publish it with `guardianctl access publish`. The
-email is the subject the access policy matches.
+`--grant` prints the access-policy YAML entry to add. The policy lives in the
+separate `access` repository, which `scripts/clone.sh` does not clone; clone it
+next to the `strata` checkout first:
+
+```bash
+git clone https://github.com/radryc/access.git ../access
+```
+
+Edit `../access/envs/<env>.yaml` and publish it with `guardianctl access
+publish`. The email is the subject the access policy matches.

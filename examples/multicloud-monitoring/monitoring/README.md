@@ -7,6 +7,10 @@ duplicating generated dashboards:
 ../../../../stratatools/partitions/monitoring
 ```
 
+The bundle lives in the separate `stratatools` repository, which
+`scripts/clone.sh` does not clone. Check it out as a sibling of `strata` before
+running the commands below; the relative paths assume that layout.
+
 It deploys Grafana, the Grafana datasources backed by Doctor (metrics, logs,
 traces), and the cross-provider dashboards for `diva-shared` / `divb-shared`
 plus the platform health boards.

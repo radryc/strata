@@ -80,9 +80,9 @@ export AWS_REGION=us-east-1
 export GCP_PROJECT=strata-gcp-dev
 export GCP_REGION=europe-west1
 
-export MONOFS_ROUTER=127.0.0.1:9090
-export MONOFS_TOKEN="$(kubectl -n guardian get secret guardian-secrets \
-  -o jsonpath='{.data.monofs-token}' | base64 -d)"
+export MONOFS_ROUTER=127.0.0.1:19090
+export MONOFS_TOKEN="$(kubectl -n strata get secret strata-secrets \
+  -o jsonpath='{.data.MONOFS_TOKEN}' | base64 -d)"
 
 # Validate without touching the control plane
 ./apply.sh --validate-only
@@ -148,7 +148,15 @@ cross-provider trace direction needs both URLs.
 ## Monitoring
 
 The platform monitoring bundle remains the canonical Grafana/Prometheus/OTel
-stack: [`stratatools/partitions/monitoring`](../../../stratatools/partitions/monitoring).
+stack: `stratatools/partitions/monitoring`. That bundle lives in the separate
+`stratatools` repository, which `scripts/clone.sh` does not clone. Clone it as a
+sibling of the `strata` checkout first (from the directory that contains
+`strata/`):
+
+```bash
+git clone <stratatools-remote> stratatools
+```
+
 Apply it after the control plane and the partitions above. See
 [`monitoring/README.md`](monitoring/README.md) for prerequisites and the
 monitoring-specific apply commands.

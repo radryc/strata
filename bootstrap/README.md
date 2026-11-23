@@ -6,7 +6,9 @@ does not require the private `demo-divisions` or `stratatools` repositories.
 ```text
 bootstrap/
 ├── kind/cluster.yaml                  # kind cluster used by dev-kind-up.sh
-├── auth/authentik.yaml                # development Authentik SSO reference
+├── auth/                              # development Authentik SSO reference
+│   ├── README.md
+│   └── authentik.yaml
 ├── k8s/                               # reference control-plane manifests
 │   ├── 00-namespace.yaml
 │   ├── 10-monofs-fetcher.yaml
@@ -43,6 +45,7 @@ stored here.
 
 See:
 
+- [auth/README.md](auth/README.md)
 - [../docs/local-kind.md](../docs/local-kind.md)
 - [../docs/access-and-login.md](../docs/access-and-login.md)
 - [../docs/kubernetes.md](../docs/kubernetes.md)
